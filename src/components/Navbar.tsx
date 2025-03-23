@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Link } from 'react-router-dom';
 
 interface NavbarProps {
   className?: string;
@@ -48,43 +49,43 @@ export function Navbar({ className }: NavbarProps) {
                 <div className="px-2">
                   <h3 className="font-medium text-sm text-labor-500 mb-3">MENU</h3>
                   <div className="space-y-1">
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
+                    <Link to="/" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
                       Dashboard
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
+                    </Link>
+                    <Link to="/reports" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
                       Reports
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
+                    </Link>
+                    <Link to="/analytics" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
                       Analytics
-                    </a>
-                    <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
+                    </Link>
+                    <Link to="/" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-labor-50 text-labor-900">
                       Subscriptions
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
-            <span className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-labor-800 to-labor-accent">
+            <Link to="/" className="text-xl font-medium bg-clip-text text-transparent bg-gradient-to-r from-labor-800 to-labor-accent">
               Labor Forecast
-            </span>
+            </Link>
           </div>
         </div>
         
         <div className="hidden md:flex items-center space-x-1">
-          <a href="#" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
+          <Link to="/" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
             Dashboard
-          </a>
-          <a href="#" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
+          </Link>
+          <Link to="/reports" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
             Reports
-          </a>
-          <a href="#" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
+          </Link>
+          <Link to="/analytics" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
             Analytics
-          </a>
-          <a href="#" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
+          </Link>
+          <Link to="/" className="px-3 py-2 rounded-md hover:bg-labor-50 text-labor-700 transition-colors">
             Subscriptions
-          </a>
+          </Link>
         </div>
         
         <div className="flex items-center space-x-3">
