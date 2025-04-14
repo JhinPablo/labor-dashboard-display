@@ -4,9 +4,7 @@ import {
   Users, 
   BriefcaseIcon, 
   TrendingUp, 
-  DollarSign, 
-  BarChart2, 
-  PieChart 
+  DollarSign
 } from 'lucide-react';
 import MetricCard from './MetricCard';
 import { 
@@ -15,8 +13,11 @@ import {
   JobGrowthChart,
   SalaryTrendsChart
 } from './Chart';
+import useDashboardData from '@/hooks/useDashboardData';
 
 export function Dashboard() {
+  const { metricData, chartData } = useDashboardData();
+
   return (
     <div className="space-y-8 p-6 animate-fade-in">
       <section>
@@ -24,27 +25,39 @@ export function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-animation">
           <MetricCard
             title="Employment Rate"
-            value="94.2%"
+            value={metricData.employmentRate.value}
             icon={<Users className="h-6 w-6" />}
-            trend={{ value: 1.2, isPositive: true }}
+            trend={{ 
+              value: metricData.employmentRate.trend, 
+              isPositive: metricData.employmentRate.trend >= 0 
+            }}
           />
           <MetricCard
             title="Job Openings"
-            value="12,543"
+            value={metricData.jobOpenings.value}
             icon={<BriefcaseIcon className="h-6 w-6" />}
-            trend={{ value: 3.7, isPositive: true }}
+            trend={{ 
+              value: metricData.jobOpenings.trend, 
+              isPositive: metricData.jobOpenings.trend >= 0 
+            }}
           />
           <MetricCard
             title="Growth Rate"
-            value="2.8%"
+            value={metricData.growthRate.value}
             icon={<TrendingUp className="h-6 w-6" />}
-            trend={{ value: 0.4, isPositive: true }}
+            trend={{ 
+              value: metricData.growthRate.trend, 
+              isPositive: metricData.growthRate.trend >= 0 
+            }}
           />
           <MetricCard
             title="Avg. Salary"
-            value="$86,420"
+            value={metricData.averageSalary.value}
             icon={<DollarSign className="h-6 w-6" />}
-            trend={{ value: 1.5, isPositive: true }}
+            trend={{ 
+              value: metricData.averageSalary.trend, 
+              isPositive: metricData.averageSalary.trend >= 0 
+            }}
           />
         </div>
       </section>
@@ -52,13 +65,13 @@ export function Dashboard() {
       <section className="space-y-5">
         <h2 className="text-xl font-medium text-labor-800 mb-5">Market Insights</h2>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-          <EmploymentTrendChart />
-          <IndustryDistributionChart />
+          <EmploymentTrendChart data={chartData.employmentData} />
+          <IndustryDistributionChart data={chartData.industryData} />
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-          <JobGrowthChart />
-          <SalaryTrendsChart />
+          <JobGrowthChart data={chartData.jobTypeData} />
+          <SalaryTrendsChart data={chartData.salaryData} />
         </div>
       </section>
     </div>

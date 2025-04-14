@@ -74,33 +74,9 @@ export function ChartContainer({
   );
 }
 
-// Sample employment data
-export const employmentData = [
-  { month: 'Jan', employed: 4000, unemployed: 2400 },
-  { month: 'Feb', employed: 3000, unemployed: 2210 },
-  { month: 'Mar', employed: 5000, unemployed: 1890 },
-  { month: 'Apr', employed: 2780, unemployed: 1908 },
-  { month: 'May', employed: 4890, unemployed: 1800 },
-  { month: 'Jun', employed: 3390, unemployed: 1750 },
-  { month: 'Jul', employed: 4490, unemployed: 1500 },
-  { month: 'Aug', employed: 5000, unemployed: 1400 },
-  { month: 'Sep', employed: 4300, unemployed: 1450 },
-  { month: 'Oct', employed: 4500, unemployed: 1410 },
-  { month: 'Nov', employed: 4700, unemployed: 1380 },
-  { month: 'Dec', employed: 4900, unemployed: 1300 },
-];
-
-export const industryData = [
-  { name: 'Technology', value: 35 },
-  { name: 'Healthcare', value: 25 },
-  { name: 'Retail', value: 15 },
-  { name: 'Manufacturing', value: 15 },
-  { name: 'Other', value: 10 },
-];
-
 export const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A4A4A4'];
 
-export function EmploymentTrendChart() {
+export function EmploymentTrendChart({ data = [] }: { data: any[] }) {
   return (
     <ChartContainer 
       title="Employment Trends" 
@@ -111,7 +87,7 @@ export function EmploymentTrendChart() {
       <div className="p-4 h-80">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={employmentData}
+            data={data}
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
           >
             <defs>
@@ -168,14 +144,14 @@ export function EmploymentTrendChart() {
   );
 }
 
-export function IndustryDistributionChart() {
+export function IndustryDistributionChart({ data = [] }: { data: any[] }) {
   return (
     <ChartContainer title="Industry Distribution">
       <div className="p-4 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={industryData}
+              data={data}
               cx="50%"
               cy="50%"
               labelLine={false}
@@ -184,7 +160,7 @@ export function IndustryDistributionChart() {
               dataKey="value"
               label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
             >
-              {industryData.map((entry, index) => (
+              {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
@@ -204,13 +180,7 @@ export function IndustryDistributionChart() {
   );
 }
 
-export function JobGrowthChart() {
-  const data = [
-    { name: 'Remote', value: 68 },
-    { name: 'Hybrid', value: 45 },
-    { name: 'On-site', value: 28 },
-  ];
-
+export function JobGrowthChart({ data = [] }: { data: any[] }) {
   return (
     <ChartContainer title="Job Market by Location Type">
       <div className="p-4 h-64">
@@ -251,16 +221,7 @@ export function JobGrowthChart() {
   );
 }
 
-export function SalaryTrendsChart() {
-  const data = [
-    { month: 'Jan', tech: 85000, health: 75000, retail: 45000 },
-    { month: 'Feb', tech: 84000, health: 76000, retail: 44000 },
-    { month: 'Mar', tech: 87000, health: 77000, retail: 45000 },
-    { month: 'Apr', tech: 89000, health: 76500, retail: 44500 },
-    { month: 'May', tech: 90000, health: 78000, retail: 45500 },
-    { month: 'Jun', tech: 92000, health: 79000, retail: 46000 },
-  ];
-
+export function SalaryTrendsChart({ data = [] }: { data: any[] }) {
   return (
     <ChartContainer 
       title="Salary Trends" 

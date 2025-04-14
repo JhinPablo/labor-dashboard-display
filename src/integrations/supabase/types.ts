@@ -9,7 +9,141 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      average_salaries: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          month: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          month: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          month?: string
+        }
+        Relationships: []
+      }
+      employment_rates: {
+        Row: {
+          created_at: string | null
+          id: string
+          month: string
+          rate: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          month: string
+          rate: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          month?: string
+          rate?: number
+        }
+        Relationships: []
+      }
+      growth_rates: {
+        Row: {
+          created_at: string | null
+          id: string
+          month: string
+          rate: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          month: string
+          rate: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          month?: string
+          rate?: number
+        }
+        Relationships: []
+      }
+      industry_distribution: {
+        Row: {
+          created_at: string | null
+          id: string
+          industry: string
+          percentage: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          industry: string
+          percentage: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          industry?: string
+          percentage?: number
+        }
+        Relationships: []
+      }
+      job_openings: {
+        Row: {
+          created_at: string | null
+          id: string
+          month: string
+          openings: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          month: string
+          openings: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          month?: string
+          openings?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          subscription_plan: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          subscription_plan?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          subscription_plan?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
