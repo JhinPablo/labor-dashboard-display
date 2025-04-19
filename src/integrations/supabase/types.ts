@@ -9,110 +9,113 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      average_salaries: {
+      fertility: {
         Row: {
-          amount: number
-          created_at: string | null
-          id: string
-          month: string
+          fertility_rate: number | null
+          geo: string
+          year: number
         }
         Insert: {
-          amount: number
-          created_at?: string | null
-          id?: string
-          month: string
+          fertility_rate?: number | null
+          geo: string
+          year: number
         }
         Update: {
-          amount?: number
-          created_at?: string | null
-          id?: string
-          month?: string
+          fertility_rate?: number | null
+          geo?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fertility_geo_fkey"
+            columns: ["geo"]
+            isOneToOne: false
+            referencedRelation: "geo_data"
+            referencedColumns: ["geo"]
+          },
+        ]
+      }
+      geo_data: {
+        Row: {
+          geo: string
+          latitude: number | null
+          longitude: number | null
+          un_region: string | null
+        }
+        Insert: {
+          geo: string
+          latitude?: number | null
+          longitude?: number | null
+          un_region?: string | null
+        }
+        Update: {
+          geo?: string
+          latitude?: number | null
+          longitude?: number | null
+          un_region?: string | null
         }
         Relationships: []
       }
-      employment_rates: {
+      labor: {
         Row: {
-          created_at: string | null
-          id: string
-          month: string
-          rate: number
+          geo: string
+          labour_force: number | null
+          sex: string
+          year: number
         }
         Insert: {
-          created_at?: string | null
-          id?: string
-          month: string
-          rate: number
+          geo: string
+          labour_force?: number | null
+          sex: string
+          year: number
         }
         Update: {
-          created_at?: string | null
-          id?: string
-          month?: string
-          rate?: number
+          geo?: string
+          labour_force?: number | null
+          sex?: string
+          year?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "labor_geo_fkey"
+            columns: ["geo"]
+            isOneToOne: false
+            referencedRelation: "geo_data"
+            referencedColumns: ["geo"]
+          },
+        ]
       }
-      growth_rates: {
+      population: {
         Row: {
-          created_at: string | null
-          id: string
-          month: string
-          rate: number
+          age: string
+          geo: string
+          population: number | null
+          sex: string
+          year: number
         }
         Insert: {
-          created_at?: string | null
-          id?: string
-          month: string
-          rate: number
+          age: string
+          geo: string
+          population?: number | null
+          sex: string
+          year: number
         }
         Update: {
-          created_at?: string | null
-          id?: string
-          month?: string
-          rate?: number
+          age?: string
+          geo?: string
+          population?: number | null
+          sex?: string
+          year?: number
         }
-        Relationships: []
-      }
-      industry_distribution: {
-        Row: {
-          created_at: string | null
-          id: string
-          industry: string
-          percentage: number
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          industry: string
-          percentage: number
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          industry?: string
-          percentage?: number
-        }
-        Relationships: []
-      }
-      job_openings: {
-        Row: {
-          created_at: string | null
-          id: string
-          month: string
-          openings: number
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          month: string
-          openings: number
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          month?: string
-          openings?: number
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "population_geo_fkey"
+            columns: ["geo"]
+            isOneToOne: false
+            referencedRelation: "geo_data"
+            referencedColumns: ["geo"]
+          },
+        ]
       }
       profiles: {
         Row: {

@@ -1,27 +1,63 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Users, 
   BriefcaseIcon, 
   TrendingUp, 
-  DollarSign
+  DollarSign,
+  Filter
 } from 'lucide-react';
 import MetricCard from './MetricCard';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   EmploymentTrendChart, 
   IndustryDistributionChart, 
   JobGrowthChart,
   SalaryTrendsChart
 } from './Chart';
+import {
+  PopulationAgeChart,
+  FertilityRateChart,
+  LaborForceChart
+} from './DemographicCharts';
 import useDashboardData from '@/hooks/useDashboardData';
 
 export function Dashboard() {
-  const { metricData, chartData } = useDashboardData();
+  const [selectedRegion, setSelectedRegion] = useState<string>('');
+  const { metricData, chartData } = useDashboardData(selectedRegion);
+
+  const handleRegionChange = (region: string) => {
+    setSelectedRegion(region);
+  };
 
   return (
     <div className="space-y-8 p-6 animate-fade-in">
       <section>
-        <h2 className="text-xl font-medium text-labor-800 mb-5">Overview</h2>
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-medium text-labor-800">Overview</h2>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-labor-500" />
+            <Select value={selectedRegion} onValueChange={handleRegionChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by region" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Regions</SelectItem>
+                {chartData.regions.map((region) => (
+                  <SelectItem key={region.region} value={region.region}>
+                    {region.region}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-animation">
           <MetricCard
             title="Employment Rate"
@@ -72,6 +108,18 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
           <JobGrowthChart data={chartData.jobTypeData} />
           <SalaryTrendsChart data={chartData.salaryData} />
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-xl font-medium text-labor-800 mb-5">Demographic Analysis</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+          <PopulationAgeChart data={chartData.populationData} />
+          <FertilityRateChart data={chartData.fertilityData} />
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+          <LaborForceChart data={chartData.laborForceData} />
         </div>
       </section>
     </div>
