@@ -29,7 +29,7 @@ import {
 import useDashboardData from '@/hooks/useDashboardData';
 
 export function Dashboard() {
-  const [selectedRegion, setSelectedRegion] = useState<string>('');
+  const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const { metricData, chartData } = useDashboardData(selectedRegion);
 
   const handleRegionChange = (region: string) => {
@@ -48,10 +48,10 @@ export function Dashboard() {
                 <SelectValue placeholder="Filter by region" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Regions</SelectItem>
+                <SelectItem value="all">All Regions</SelectItem>
                 {chartData.regions.map((region) => (
-                  <SelectItem key={region.region} value={region.region}>
-                    {region.region}
+                  <SelectItem key={region.region} value={region.region || "unknown"}>
+                    {region.region || "Unknown Region"}
                   </SelectItem>
                 ))}
               </SelectContent>

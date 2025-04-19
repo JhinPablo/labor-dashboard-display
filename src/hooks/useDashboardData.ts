@@ -23,7 +23,7 @@ export type ChartData = {
   isLoading: boolean;
 };
 
-const useDashboardData = (selectedRegion: string = '') => {
+const useDashboardData = (selectedRegion: string = 'all') => {
   const [metricData, setMetricData] = useState<MetricData>({
     employmentRate: { value: '0%', trend: 0 },
     jobOpenings: { value: '0', trend: 0 },
@@ -50,85 +50,26 @@ const useDashboardData = (selectedRegion: string = '') => {
 
   const fetchMetricData = async () => {
     try {
-      // Fetch latest employment rate
-      const { data: employmentRateData, error: employmentRateError } = await supabase
-        .from('employment_rates')
-        .select('*')
-        .order('month', { ascending: false })
-        .limit(2);
-      
-      if (employmentRateError) throw employmentRateError;
-      
-      // Fetch latest job openings
-      const { data: jobOpeningsData, error: jobOpeningsError } = await supabase
-        .from('job_openings')
-        .select('*')
-        .order('month', { ascending: false })
-        .limit(2);
-        
-      if (jobOpeningsError) throw jobOpeningsError;
-      
-      // Fetch latest growth rate
-      const { data: growthRateData, error: growthRateError } = await supabase
-        .from('growth_rates')
-        .select('*')
-        .order('month', { ascending: false })
-        .limit(2);
-        
-      if (growthRateError) throw growthRateError;
-      
-      // Fetch latest average salary
-      const { data: salaryData, error: salaryError } = await supabase
-        .from('average_salaries')
-        .select('*')
-        .order('month', { ascending: false })
-        .limit(2);
-        
-      if (salaryError) throw salaryError;
-      
-      if (
-        employmentRateData && employmentRateData.length > 0 &&
-        jobOpeningsData && jobOpeningsData.length > 0 &&
-        growthRateData && growthRateData.length > 0 &&
-        salaryData && salaryData.length > 0
-      ) {
-        // Calculate trends
-        const employmentTrend = employmentRateData.length > 1 
-          ? (employmentRateData[0].rate - employmentRateData[1].rate)
-          : 0;
-          
-        const jobOpeningsTrend = jobOpeningsData.length > 1
-          ? ((jobOpeningsData[0].openings - jobOpeningsData[1].openings) / jobOpeningsData[1].openings) * 100
-          : 0;
-          
-        const growthTrend = growthRateData.length > 1
-          ? (growthRateData[0].rate - growthRateData[1].rate)
-          : 0;
-          
-        const salaryTrend = salaryData.length > 1
-          ? ((salaryData[0].amount - salaryData[1].amount) / salaryData[1].amount) * 100
-          : 0;
-          
-        setMetricData({
-          employmentRate: { 
-            value: `${employmentRateData[0].rate}%`, 
-            trend: parseFloat(employmentTrend.toFixed(1))
-          },
-          jobOpenings: { 
-            value: jobOpeningsData[0].openings.toLocaleString(), 
-            trend: parseFloat(jobOpeningsTrend.toFixed(1))
-          },
-          growthRate: { 
-            value: `${growthRateData[0].rate}%`, 
-            trend: parseFloat(growthTrend.toFixed(1))
-          },
-          averageSalary: { 
-            value: `$${salaryData[0].amount.toLocaleString()}`, 
-            trend: parseFloat(salaryTrend.toFixed(1))
-          },
-          isLoading: false
-        });
-      }
+      // For now, we'll use mock data since we don't have actual employment_rates tables
+      setMetricData({
+        employmentRate: { 
+          value: '94.5%', 
+          trend: 1.2
+        },
+        jobOpenings: { 
+          value: '13,800', 
+          trend: 3.5
+        },
+        growthRate: { 
+          value: '3.2%', 
+          trend: 0.4
+        },
+        averageSalary: { 
+          value: '$87,900', 
+          trend: 1.7
+        },
+        isLoading: false
+      });
     } catch (error) {
       console.error('Error fetching metric data:', error);
       toast.error('Failed to load dashboard metrics');
@@ -138,30 +79,33 @@ const useDashboardData = (selectedRegion: string = '') => {
 
   const fetchChartData = async () => {
     try {
-      // Fetch employment data
-      const { data: employmentData, error: employmentError } = await supabase
-        .from('employment_rates')
-        .select('*')
-        .order('month', { ascending: true });
+      // Generate mock employment data
+      const mockEmploymentData = [
+        { month: 'Jan', employed: 94.0, unemployed: 6.0 },
+        { month: 'Feb', employed: 94.5, unemployed: 5.5 },
+        { month: 'Mar', employed: 95.2, unemployed: 4.8 },
+        { month: 'Apr', employed: 95.8, unemployed: 4.2 },
+      ];
       
-      if (employmentError) throw employmentError;
+      // Generate mock industry data
+      const mockIndustryData = [
+        { name: 'Technology', value: 25.5 },
+        { name: 'Healthcare', value: 18.3 },
+        { name: 'Finance', value: 15.7 },
+        { name: 'Manufacturing', value: 12.9 },
+        { name: 'Retail', value: 10.2 },
+        { name: 'Education', value: 8.6 },
+        { name: 'Other', value: 8.8 },
+      ];
       
-      // Fetch industry distribution data
-      const { data: industryData, error: industryError } = await supabase
-        .from('industry_distribution')
-        .select('*');
-        
-      if (industryError) throw industryError;
+      // Generate mock salary data
+      const mockSalaryData = [
+        { month: 'Jan', tech: 100200, health: 91900, retail: 58450 },
+        { month: 'Feb', tech: 101040, health: 92620, retail: 58940 },
+        { month: 'Mar', tech: 103704, health: 95062, retail: 60494 },
+        { month: 'Apr', tech: 105480, health: 96690, retail: 61530 },
+      ];
       
-      // Fetch salary data
-      const { data: salaryData, error: salaryError } = await supabase
-        .from('average_salaries')
-        .select('*')
-        .order('month', { ascending: true })
-        .limit(6);
-        
-      if (salaryError) throw salaryError;
-
       // Fetch unique regions
       const { data: regionsData, error: regionsError } = await supabase
         .from('geo_data')
@@ -182,7 +126,7 @@ const useDashboardData = (selectedRegion: string = '') => {
         .select('age, sex, population, geo_data!inner(un_region)')
         .order('age', { ascending: true });
 
-      if (selectedRegion) {
+      if (selectedRegion && selectedRegion !== 'all') {
         populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
       }
 
@@ -196,7 +140,7 @@ const useDashboardData = (selectedRegion: string = '') => {
         .select('year, fertility_rate, geo_data!inner(un_region)')
         .order('year', { ascending: true });
 
-      if (selectedRegion) {
+      if (selectedRegion && selectedRegion !== 'all') {
         fertilityQuery = fertilityQuery.eq('geo_data.un_region', selectedRegion);
       }
 
@@ -210,40 +154,13 @@ const useDashboardData = (selectedRegion: string = '') => {
         .select('year, labour_force, sex, geo_data!inner(un_region)')
         .order('year', { ascending: true });
 
-      if (selectedRegion) {
+      if (selectedRegion && selectedRegion !== 'all') {
         laborQuery = laborQuery.eq('geo_data.un_region', selectedRegion);
       }
 
       const { data: laborData, error: laborError } = await laborQuery;
       
       if (laborError) throw laborError;
-      
-      // Format data for charts
-      const formattedEmploymentData = employmentData.map(item => {
-        const date = new Date(item.month);
-        const unemployedRate = 100 - item.rate;
-        return {
-          month: date.toLocaleString('default', { month: 'short' }),
-          employed: item.rate,
-          unemployed: unemployedRate
-        };
-      });
-      
-      const formattedIndustryData = industryData.map(item => ({
-        name: item.industry,
-        value: item.percentage
-      }));
-      
-      // Create formatted salary data by industry based on average salary
-      const formattedSalaryData = salaryData.map(item => {
-        const date = new Date(item.month);
-        return {
-          month: date.toLocaleString('default', { month: 'short' }),
-          tech: item.amount * 1.2, // Tech gets 20% more than average
-          health: item.amount * 1.1, // Healthcare gets 10% more than average
-          retail: item.amount * 0.7 // Retail gets 30% less than average
-        };
-      });
 
       // Format population data by age groups and gender
       const processedPopulationData = populationData.reduce((acc, item) => {
@@ -296,14 +213,14 @@ const useDashboardData = (selectedRegion: string = '') => {
       }, [] as Array<{ year: number; male: number; female: number; region: string }>);
       
       setChartData({
-        employmentData: formattedEmploymentData,
-        industryData: formattedIndustryData,
+        employmentData: mockEmploymentData,
+        industryData: mockIndustryData,
         jobTypeData: [
           { name: 'Remote', value: 68 },
           { name: 'Hybrid', value: 45 },
           { name: 'On-site', value: 28 }
         ],
-        salaryData: formattedSalaryData,
+        salaryData: mockSalaryData,
         populationData: processedPopulationData,
         fertilityData: formattedFertilityData,
         laborForceData: processedLaborForceData,
