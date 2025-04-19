@@ -13,16 +13,19 @@ export type Database = {
         Row: {
           fertility_rate: number | null
           geo: string
+          id: number
           year: number
         }
         Insert: {
           fertility_rate?: number | null
           geo: string
+          id?: number
           year: number
         }
         Update: {
           fertility_rate?: number | null
           geo?: string
+          id?: number
           year?: number
         }
         Relationships: [
@@ -59,18 +62,21 @@ export type Database = {
       labor: {
         Row: {
           geo: string
+          id: number
           labour_force: number | null
           sex: string
           year: number
         }
         Insert: {
           geo: string
+          id?: number
           labour_force?: number | null
           sex: string
           year: number
         }
         Update: {
           geo?: string
+          id?: number
           labour_force?: number | null
           sex?: string
           year?: number
@@ -89,6 +95,7 @@ export type Database = {
         Row: {
           age: string
           geo: string
+          id: number
           population: number | null
           sex: string
           year: number
@@ -96,6 +103,7 @@ export type Database = {
         Insert: {
           age: string
           geo: string
+          id?: number
           population?: number | null
           sex: string
           year: number
@@ -103,6 +111,7 @@ export type Database = {
         Update: {
           age?: string
           geo?: string
+          id?: number
           population?: number | null
           sex?: string
           year?: number

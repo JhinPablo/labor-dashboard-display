@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { 
   Users, 
-  BriefcaseIcon, 
   TrendingUp, 
-  DollarSign,
-  Filter
+  Filter,
+  BarChart,
+  LineChart,
+  PieChart
 } from 'lucide-react';
 import MetricCard from './MetricCard';
 import {
@@ -15,16 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  EmploymentTrendChart, 
-  IndustryDistributionChart, 
-  JobGrowthChart,
-  SalaryTrendsChart
-} from './Chart';
 import {
   PopulationAgeChart,
   FertilityRateChart,
-  LaborForceChart
+  LaborForceChart,
+  PopulationByRegionChart
 } from './DemographicCharts';
 import useDashboardData from '@/hooks/useDashboardData';
 
@@ -50,7 +46,7 @@ export function Dashboard() {
               <SelectContent>
                 <SelectItem value="all">All Regions</SelectItem>
                 {chartData.regions.map((region) => (
-                  <SelectItem key={region.region} value={region.region || "unknown"}>
+                  <SelectItem key={region.region} value={region.region}>
                     {region.region || "Unknown Region"}
                   </SelectItem>
                 ))}
@@ -60,65 +56,53 @@ export function Dashboard() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-animation">
           <MetricCard
-            title="Employment Rate"
-            value={metricData.employmentRate.value}
+            title="Population"
+            value={metricData.populationTotal.value}
             icon={<Users className="h-6 w-6" />}
             trend={{ 
-              value: metricData.employmentRate.trend, 
-              isPositive: metricData.employmentRate.trend >= 0 
+              value: metricData.populationTotal.trend, 
+              isPositive: metricData.populationTotal.trend >= 0 
             }}
           />
           <MetricCard
-            title="Job Openings"
-            value={metricData.jobOpenings.value}
-            icon={<BriefcaseIcon className="h-6 w-6" />}
+            title="Labor Force Rate"
+            value={metricData.laborForceRate.value}
+            icon={<BarChart className="h-6 w-6" />}
             trend={{ 
-              value: metricData.jobOpenings.trend, 
-              isPositive: metricData.jobOpenings.trend >= 0 
+              value: metricData.laborForceRate.trend, 
+              isPositive: metricData.laborForceRate.trend >= 0 
             }}
           />
           <MetricCard
-            title="Growth Rate"
-            value={metricData.growthRate.value}
-            icon={<TrendingUp className="h-6 w-6" />}
+            title="Fertility Rate"
+            value={metricData.fertilityRate.value}
+            icon={<LineChart className="h-6 w-6" />}
             trend={{ 
-              value: metricData.growthRate.trend, 
-              isPositive: metricData.growthRate.trend >= 0 
+              value: metricData.fertilityRate.trend, 
+              isPositive: metricData.fertilityRate.trend >= 0 
             }}
           />
           <MetricCard
-            title="Avg. Salary"
-            value={metricData.averageSalary.value}
-            icon={<DollarSign className="h-6 w-6" />}
+            title="Regions"
+            value={metricData.regionCount.value}
+            icon={<PieChart className="h-6 w-6" />}
             trend={{ 
-              value: metricData.averageSalary.trend, 
-              isPositive: metricData.averageSalary.trend >= 0 
+              value: metricData.regionCount.trend, 
+              isPositive: true
             }}
           />
         </div>
       </section>
       
       <section className="space-y-5">
-        <h2 className="text-xl font-medium text-labor-800 mb-5">Market Insights</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-          <EmploymentTrendChart data={chartData.employmentData} />
-          <IndustryDistributionChart data={chartData.industryData} />
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-          <JobGrowthChart data={chartData.jobTypeData} />
-          <SalaryTrendsChart data={chartData.salaryData} />
-        </div>
-      </section>
-
-      <section className="space-y-5">
         <h2 className="text-xl font-medium text-labor-800 mb-5">Demographic Analysis</h2>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
           <PopulationAgeChart data={chartData.populationData} />
-          <FertilityRateChart data={chartData.fertilityData} />
+          <PopulationByRegionChart data={chartData.populationByRegion} />
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+          <FertilityRateChart data={chartData.fertilityData} />
           <LaborForceChart data={chartData.laborForceData} />
         </div>
       </section>

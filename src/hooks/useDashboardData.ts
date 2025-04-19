@@ -4,69 +4,118 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type MetricData = {
-  employmentRate: { value: string; trend: number };
-  jobOpenings: { value: string; trend: number };
-  growthRate: { value: string; trend: number };
-  averageSalary: { value: string; trend: number };
+  populationTotal: { value: string; trend: number };
+  laborForceRate: { value: string; trend: number };
+  fertilityRate: { value: string; trend: number };
+  regionCount: { value: string; trend: number };
   isLoading: boolean;
 };
 
 export type ChartData = {
-  employmentData: Array<{ month: string; employed: number; unemployed: number }>;
-  industryData: Array<{ name: string; value: number }>;
-  jobTypeData: Array<{ name: string; value: number }>;
-  salaryData: Array<{ month: string; tech: number; health: number; retail: number }>;
   populationData: Array<{ age: string; male: number; female: number }>;
   fertilityData: Array<{ year: number; rate: number; region: string }>;
   laborForceData: Array<{ year: number; male: number; female: number; region: string }>;
+  populationByRegion: Array<{ region: string; population: number }>;
   regions: Array<{ region: string }>;
   isLoading: boolean;
 };
 
 const useDashboardData = (selectedRegion: string = 'all') => {
   const [metricData, setMetricData] = useState<MetricData>({
-    employmentRate: { value: '0%', trend: 0 },
-    jobOpenings: { value: '0', trend: 0 },
-    growthRate: { value: '0%', trend: 0 },
-    averageSalary: { value: '$0', trend: 0 },
+    populationTotal: { value: '0', trend: 0 },
+    laborForceRate: { value: '0%', trend: 0 },
+    fertilityRate: { value: '0', trend: 0 },
+    regionCount: { value: '0', trend: 0 },
     isLoading: true
   });
   
   const [chartData, setChartData] = useState<ChartData>({
-    employmentData: [],
-    industryData: [],
-    jobTypeData: [
-      { name: 'Remote', value: 68 },
-      { name: 'Hybrid', value: 45 },
-      { name: 'On-site', value: 28 }
-    ],
-    salaryData: [],
     populationData: [],
     fertilityData: [],
     laborForceData: [],
+    populationByRegion: [],
     regions: [],
     isLoading: true
   });
 
   const fetchMetricData = async () => {
     try {
-      // For now, we'll use mock data since we don't have actual employment_rates tables
+      // Calculate population total and trend
+      let populationQuery = supabase
+        .from('population')
+        .select('population, geo_data!inner(un_region)');
+
+      if (selectedRegion && selectedRegion !== 'all') {
+        populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
+      }
+
+      const { data: populationData, error: populationError } = await populationQuery;
+      
+      if (populationError) throw populationError;
+
+      const totalPopulation = populationData.reduce((sum, item) => sum + (item.population || 0), 0) / 1000000;
+      
+      // Calculate labor force rate
+      let laborQuery = supabase
+        .from('labor')
+        .select('labour_force, geo_data!inner(un_region)');
+
+      if (selectedRegion && selectedRegion !== 'all') {
+        laborQuery = laborQuery.eq('geo_data.un_region', selectedRegion);
+      }
+
+      const { data: laborData, error: laborError } = await laborQuery;
+      
+      if (laborError) throw laborError;
+
+      const totalLaborForce = laborData.reduce((sum, item) => sum + (item.labour_force || 0), 0);
+      const laborForceRate = totalPopulation > 0 ? (totalLaborForce / totalPopulation) * 100 : 0;
+      
+      // Get average fertility rate
+      let fertilityQuery = supabase
+        .from('fertility')
+        .select('fertility_rate, geo_data!inner(un_region)')
+        .order('year', { ascending: false })
+        .limit(100);  // Get recent data
+
+      if (selectedRegion && selectedRegion !== 'all') {
+        fertilityQuery = fertilityQuery.eq('geo_data.un_region', selectedRegion);
+      }
+
+      const { data: fertilityData, error: fertilityError } = await fertilityQuery;
+      
+      if (fertilityError) throw fertilityError;
+
+      const avgFertilityRate = fertilityData.length > 0 
+        ? fertilityData.reduce((sum, item) => sum + (item.fertility_rate || 0), 0) / fertilityData.length
+        : 0;
+
+      // Get region count
+      const { data: regionsData, error: regionsError } = await supabase
+        .from('geo_data')
+        .select('un_region')
+        .not('un_region', 'is', null);
+
+      if (regionsError) throw regionsError;
+      
+      const uniqueRegionsCount = new Set(regionsData.map(item => item.un_region)).size;
+
       setMetricData({
-        employmentRate: { 
-          value: '94.5%', 
-          trend: 1.2
+        populationTotal: { 
+          value: `${totalPopulation.toFixed(1)}M`, 
+          trend: 1.2 // Placeholder trend for demonstration
         },
-        jobOpenings: { 
-          value: '13,800', 
-          trend: 3.5
+        laborForceRate: { 
+          value: `${laborForceRate.toFixed(1)}%`, 
+          trend: 0.8
         },
-        growthRate: { 
-          value: '3.2%', 
-          trend: 0.4
+        fertilityRate: { 
+          value: avgFertilityRate.toFixed(2), 
+          trend: -0.3
         },
-        averageSalary: { 
-          value: '$87,900', 
-          trend: 1.7
+        regionCount: { 
+          value: String(uniqueRegionsCount), 
+          trend: 0
         },
         isLoading: false
       });
@@ -79,33 +128,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
   const fetchChartData = async () => {
     try {
-      // Generate mock employment data
-      const mockEmploymentData = [
-        { month: 'Jan', employed: 94.0, unemployed: 6.0 },
-        { month: 'Feb', employed: 94.5, unemployed: 5.5 },
-        { month: 'Mar', employed: 95.2, unemployed: 4.8 },
-        { month: 'Apr', employed: 95.8, unemployed: 4.2 },
-      ];
-      
-      // Generate mock industry data
-      const mockIndustryData = [
-        { name: 'Technology', value: 25.5 },
-        { name: 'Healthcare', value: 18.3 },
-        { name: 'Finance', value: 15.7 },
-        { name: 'Manufacturing', value: 12.9 },
-        { name: 'Retail', value: 10.2 },
-        { name: 'Education', value: 8.6 },
-        { name: 'Other', value: 8.8 },
-      ];
-      
-      // Generate mock salary data
-      const mockSalaryData = [
-        { month: 'Jan', tech: 100200, health: 91900, retail: 58450 },
-        { month: 'Feb', tech: 101040, health: 92620, retail: 58940 },
-        { month: 'Mar', tech: 103704, health: 95062, retail: 60494 },
-        { month: 'Apr', tech: 105480, health: 96690, retail: 61530 },
-      ];
-      
       // Fetch unique regions
       const { data: regionsData, error: regionsError } = await supabase
         .from('geo_data')
@@ -118,7 +140,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       // Format regions data (unique values)
       const uniqueRegions = Array.from(
         new Set(regionsData.map(item => item.un_region))
-      ).map(region => ({ region }));
+      ).filter(Boolean).map(region => ({ region: region as string }));
 
       // Build population query with optional region filter
       let populationQuery = supabase
@@ -212,18 +234,33 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         return acc;
       }, [] as Array<{ year: number; male: number; female: number; region: string }>);
       
+      // Calculate population by region
+      const populationByRegion = populationData.reduce((acc, item) => {
+        const region = item.geo_data.un_region;
+        const existingRegion = acc.find(r => r.region === region);
+        
+        if (existingRegion) {
+          existingRegion.population += (item.population || 0);
+        } else {
+          acc.push({
+            region,
+            population: item.population || 0
+          });
+        }
+        
+        return acc;
+      }, [] as Array<{ region: string; population: number }>);
+      
+      // Sort and limit to top regions
+      const topRegions = [...populationByRegion]
+        .sort((a, b) => b.population - a.population)
+        .slice(0, 10);
+      
       setChartData({
-        employmentData: mockEmploymentData,
-        industryData: mockIndustryData,
-        jobTypeData: [
-          { name: 'Remote', value: 68 },
-          { name: 'Hybrid', value: 45 },
-          { name: 'On-site', value: 28 }
-        ],
-        salaryData: mockSalaryData,
         populationData: processedPopulationData,
         fertilityData: formattedFertilityData,
         laborForceData: processedLaborForceData,
+        populationByRegion: topRegions,
         regions: uniqueRegions,
         isLoading: false
       });
