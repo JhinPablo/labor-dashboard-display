@@ -180,7 +180,13 @@ export const PopulationByRegionChart = ({ data = [] }: { data: Array<{ region: s
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value) => [(value / 1000000).toFixed(2) + 'M', 'Population']}
+                formatter={(value) => {
+                  // Fix: Ensure value is a number before division
+                  if (typeof value === 'number') {
+                    return [(value / 1000000).toFixed(2) + 'M', 'Population'];
+                  }
+                  return [String(value), 'Population'];
+                }}
                 contentStyle={{ 
                   backgroundColor: 'white', 
                   borderRadius: '8px', 

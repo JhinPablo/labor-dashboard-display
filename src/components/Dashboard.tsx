@@ -46,9 +46,12 @@ export function Dashboard() {
               <SelectContent>
                 <SelectItem value="all">All Regions</SelectItem>
                 {chartData.regions.map((region) => (
-                  <SelectItem key={region.region} value={region.region}>
-                    {region.region || "Unknown Region"}
-                  </SelectItem>
+                  // Only render SelectItem if region.region is a non-empty string
+                  region.region && region.region.trim() !== '' ? (
+                    <SelectItem key={region.region} value={region.region}>
+                      {region.region}
+                    </SelectItem>
+                  ) : null
                 ))}
               </SelectContent>
             </Select>
