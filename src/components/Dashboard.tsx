@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   CircleUser, 
   LineChart as LineChartIcon,
   BarChart,
-  Map
+  Map,
+  AlertCircle
 } from 'lucide-react';
 import MetricCard from './MetricCard';
 import {
@@ -21,24 +23,43 @@ import {
   LaborForceChart
 } from './DemographicCharts';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import useDashboardData from '@/hooks/useDashboardData';
+import { testConnection } from '@/lib/supabaseClient';
 
 export function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const { metricData, chartData, isLoading } = useDashboardData(selectedRegion);
+  const [debugMode, setDebugMode] = useState<boolean>(true);
+  const [supabaseStatus, setSupabaseStatus] = useState<boolean | null>(null);
+  
+  const { metricData, chartData, isLoading, error, refresh } = useDashboardData(selectedRegion);
+
+  useEffect(() => {
+    // Test Supabase connection on component mount
+    const checkSupabase = async () => {
+      const status = await testConnection();
+      setSupabaseStatus(status);
+      console.log("Supabase connection status:", status);
+    };
+    
+    checkSupabase();
+  }, []);
 
   const handleRegionChange = (region: string) => {
+    console.log("Region changed to:", region);
     setSelectedRegion(region);
     setSelectedCountry('all'); // Reset country filter when region changes
   };
 
   const handleCountryChange = (country: string) => {
+    console.log("Country changed to:", country);
     setSelectedCountry(country);
   };
 
   const handleYearChange = (year: string) => {
+    console.log("Year changed to:", year);
     setSelectedYear(parseInt(year));
   };
 
@@ -57,6 +78,58 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8 p-6 animate-fade-in">
+      {/* Debug Panel */}
+      {debugMode && (
+        <Card className="bg-yellow-50 border-yellow-300">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-yellow-800 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                Debug Panel
+              </h3>
+              <button 
+                className="text-xs bg-yellow-200 hover:bg-yellow-300 px-2 py-1 rounded"
+                onClick={() => setDebugMode(false)}>
+                Hide
+              </button>
+            </div>
+            <div className="mt-3 text-sm space-y-2 bg-white p-3 rounded">
+              <div><strong>Supabase Connection:</strong> {supabaseStatus === null ? 'Checking...' : (supabaseStatus ? 'Connected ✅' : 'Failed ❌')}</div>
+              <div><strong>Loading State:</strong> {isLoading ? 'Loading... ⏳' : 'Complete ✅'}</div>
+              <div><strong>Error:</strong> {error ? `❌ ${error}` : 'None ✅'}</div>
+              <div><strong>Selected Region:</strong> {selectedRegion}</div>
+              <div><strong>Selected Country:</strong> {selectedCountry}</div>
+              <div><strong>Selected Year:</strong> {effectiveYear}</div>
+              <div><strong>Available Years:</strong> {chartData.years.length}</div>
+              <div><strong>Available Countries:</strong> {chartData.countries.length}</div>
+              <div className="mt-3">
+                <button 
+                  className="text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded"
+                  onClick={refresh}>
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error display */}
+      {error && !debugMode && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            <button 
+              className="ml-4 text-xs bg-red-100 hover:bg-red-200 text-red-800 px-2 py-1 rounded"
+              onClick={() => setDebugMode(true)}>
+              Show Debug Panel
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Overview Section */}
       <section>
         <div className="flex justify-between items-center mb-5">
@@ -69,7 +142,7 @@ export function Dashboard() {
               <SelectContent>
                 <SelectItem value="all">All Regions</SelectItem>
                 {chartData.regions && chartData.regions.map((region) => (
-                  region.region && region.region.trim() !== '' && region.region !== 'Western Asia' ? (
+                  region.region && region.region.trim() !== '' ? (
                     <SelectItem key={region.region} value={region.region}>
                       {region.region}
                     </SelectItem>
