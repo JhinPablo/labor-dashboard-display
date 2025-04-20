@@ -205,10 +205,6 @@ export function Dashboard() {
               disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
             >
 
-
-
-
-
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
@@ -262,32 +258,33 @@ export function Dashboard() {
                   </div>
                 ) : chartData.dependencyRatioData.length > 0 ? (
                   
+                  // <div className="p-4 space-y-4">
+                  //   <h4 className="text-sm font-medium text-labor-800">Top 3 Countries by Dependency Ratio</h4>
+                  //   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  //     {[...chartData.dependencyRatioData]
+                  //       .filter(d => d.year === effectiveYear)
+                  //       .sort((a, b) => b.dependencyRatio - a.dependencyRatio)
+                  //       .slice(0, 3)
+                  //       .map((item) => (
+                  //         <Card key={item.country} className="bg-labor-50 shadow-sm border">
+                  //           <CardContent className="p-3">
+                  //             <div className="font-semibold">{item.country}</div>
+                  //             <div className="text-sm text-labor-600">{item.dependencyRatio.toFixed(1)}%</div>
+                  //           </CardContent>
+                  //         </Card>
+                  //       ))}
+                  //   </div>
 
-                  <div className="p-4 space-y-4">
-                    <h4 className="text-sm font-medium text-labor-800">Top 3 Countries by Dependency Ratio</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[...chartData.dependencyRatioData]
-                        .filter(d => d.year === effectiveYear)
-                        .sort((a, b) => b.dependencyRatio - a.dependencyRatio)
-                        .slice(0, 3)
-                        .map((item) => (
-                          <Card key={item.country} className="bg-labor-50 shadow-sm border">
-                            <CardContent className="p-3">
-                              <div className="font-semibold">{item.country}</div>
-                              <div className="text-sm text-labor-600">{item.dependencyRatio.toFixed(1)}%</div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                    </div>
-
-
-
-
-                    
-                    <DependencyRatioMapModal data={chartData.dependencyRatioData} year={effectiveYear} />
-                  </div>
-
-
+                    <div className="p-4 space-y-4">
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-600 space-y-2">
+                        <Map className="h-10 w-10 text-labor-500" />
+                        <p className="text-sm">Click below to view an interactive map with dependency ratios by country.</p>
+                        <DependencyRatioMapModal
+                          data={chartData.dependencyRatioData}
+                          year={effectiveYear}
+                        />
+                      </div>
+                      </div>
 
                 ) : (
                   <div className="h-full flex items-center justify-center">

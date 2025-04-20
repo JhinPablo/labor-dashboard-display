@@ -318,7 +318,8 @@ export const DependencyRatioMap = ({
       <div className="h-[380px] w-full rounded-md border bg-white shadow-sm">
         <ComposableMap
           projection="geoEqualEarth"
-          projectionConfig={{ scale: 800, center: [15, 52] }}
+          // projectionConfig={{ scale: 800, center: [15, 52] }}
+          projectionConfig={{ scale: 1000, center: [20, 50] }}
           data-tip=""
           className="w-full h-full"
         >
