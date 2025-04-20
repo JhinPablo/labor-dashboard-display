@@ -337,13 +337,14 @@ export function Dashboard() {
                 <SelectValue placeholder={availableYears.length === 0 ? "No years available" : "Select Year"} />
               </SelectTrigger>
               <SelectContent>
-                {availableYears && availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-                {availableYears.length === 0 && (
-                  <SelectItem disabled value="">
+                {availableYears && availableYears.length > 0 ? (
+                  availableYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-data" disabled>
                     No years available
                   </SelectItem>
                 )}
