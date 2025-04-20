@@ -126,6 +126,35 @@ export type Database = {
           },
         ]
       }
+      predictions: {
+        Row: {
+          geo: string | null
+          ID: number
+          predicted_labour_force: number | null
+          time_period: number | null
+        }
+        Insert: {
+          geo?: string | null
+          ID: number
+          predicted_labour_force?: number | null
+          time_period?: number | null
+        }
+        Update: {
+          geo?: string | null
+          ID?: number
+          predicted_labour_force?: number | null
+          time_period?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "predictions_geo_fkey"
+            columns: ["geo"]
+            isOneToOne: false
+            referencedRelation: "geo_data"
+            referencedColumns: ["geo"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null

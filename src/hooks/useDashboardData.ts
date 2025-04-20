@@ -1,20 +1,21 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import supabase from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 
 export type MetricData = {
   populationTotal: { value: string; trend: number };
   laborForceRate: { value: string; trend: number };
   fertilityRate: { value: string; trend: number };
+  dependencyRatio: { value: string; trend: number };
   isLoading: boolean;
 };
 
 export type ChartData = {
-  populationData: Array<{ age: string; male: number; female: number }>;
   fertilityData: Array<{ year: number; rate: number; country: string }>;
   laborForceData: Array<{ year: number; male: number; female: number; country: string }>;
-  populationByCountry: Array<{ country: string; region: string; population: number; latitude: number | null; longitude: number | null }>;
+  populationPyramidData: Array<{ age: string; male: number; female: number; country: string; year: number }>;
+  dependencyRatioData: Array<{ country: string; region: string; dependencyRatio: number; year: number; latitude: number | null; longitude: number | null }>;
   regions: Array<{ region: string }>;
   countries: Array<{ geo: string; un_region: string }>;
   years: number[];
@@ -26,19 +27,22 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     populationTotal: { value: '0', trend: 0 },
     laborForceRate: { value: '0%', trend: 0 },
     fertilityRate: { value: '0', trend: 0 },
+    dependencyRatio: { value: '0%', trend: 0 },
     isLoading: true
   });
   
   const [chartData, setChartData] = useState<ChartData>({
-    populationData: [],
     fertilityData: [],
     laborForceData: [],
-    populationByCountry: [],
+    populationPyramidData: [],
+    dependencyRatioData: [],
     regions: [],
     countries: [],
     years: [],
     isLoading: true
   });
+
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const fetchMetricData = async () => {
     try {
@@ -218,15 +222,119 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       const validPrevFertility = prevFertilityData.filter(item => item.fertility_rate !== null);
 
       const avgCurrentFertility = validCurrentFertility.length > 0
-        ? validCurrentFertility.reduce((sum, item) => sum + item.fertility_rate, 0) / validCurrentFertility.length
+        ? validCurrentFertility.reduce((sum, item) => sum + Number(item.fertility_rate), 0) / validCurrentFertility.length
         : 0;
       
       const avgPrevFertility = validPrevFertility.length > 0
-        ? validPrevFertility.reduce((sum, item) => sum + item.fertility_rate, 0) / validPrevFertility.length
+        ? validPrevFertility.reduce((sum, item) => sum + Number(item.fertility_rate), 0) / validPrevFertility.length
         : 0;
       
       const fertilityTrend = avgPrevFertility !== 0 
         ? ((avgCurrentFertility - avgPrevFertility) / avgPrevFertility) * 100 
+        : 0;
+
+      // Calculate dependency ratio
+      const fetchDependencyRatio = async (year: number) => {
+        let dependentPopQuery = supabase
+          .from('population')
+          .select('population, sex, age, geo, geo_data!inner(un_region)')
+          .eq('year', year)
+          .eq('sex', 'Total')
+          .or('age.in.(From 0 to 4 years,From 5 to 9 years,From 10 to 14 years,From 65 to 69 years,From 70 to 74 years,From 75 to 79 years,From 80 to 84 years,From 85 to 89 years,From 90 to 94 years,From 95 to 99 years,100 years and over)');
+
+        let workingAgePopQuery = supabase
+          .from('population')
+          .select('population, sex, age, geo, geo_data!inner(un_region)')
+          .eq('year', year)
+          .eq('sex', 'Total')
+          .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
+
+        if (selectedRegion && selectedRegion !== 'all') {
+          dependentPopQuery = dependentPopQuery.eq('geo_data.un_region', selectedRegion);
+          workingAgePopQuery = workingAgePopQuery.eq('geo_data.un_region', selectedRegion);
+        } else if (selectedRegion === 'all') {
+          dependentPopQuery = dependentPopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          workingAgePopQuery = workingAgePopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+        }
+
+        const [dependentResult, workingAgeResult] = await Promise.all([
+          dependentPopQuery,
+          workingAgePopQuery
+        ]);
+
+        return {
+          dependent: dependentResult.data || [],
+          workingAge: workingAgeResult.data || [],
+          dependentError: dependentResult.error,
+          workingAgeError: workingAgeResult.error
+        };
+      };
+
+      const currentYearDependencyData = await fetchDependencyRatio(currentYear);
+      if (currentYearDependencyData.dependentError) throw currentYearDependencyData.dependentError;
+      if (currentYearDependencyData.workingAgeError) throw currentYearDependencyData.workingAgeError;
+
+      const prevYearDependencyData = await fetchDependencyRatio(previousYear);
+      if (prevYearDependencyData.dependentError) throw prevYearDependencyData.dependentError;
+      if (prevYearDependencyData.workingAgeError) throw prevYearDependencyData.workingAgeError;
+
+      // Group dependent and working age population by country
+      const groupDependentsByCountry = currentYearDependencyData.dependent.reduce((acc, item) => {
+        if (!acc[item.geo]) acc[item.geo] = 0;
+        acc[item.geo] += (item.population || 0);
+        return acc;
+      }, {});
+
+      const groupWorkingAgeByCountry = currentYearDependencyData.workingAge.reduce((acc, item) => {
+        if (!acc[item.geo]) acc[item.geo] = 0;
+        acc[item.geo] += (item.population || 0);
+        return acc;
+      }, {});
+
+      const prevGroupDependentsByCountry = prevYearDependencyData.dependent.reduce((acc, item) => {
+        if (!acc[item.geo]) acc[item.geo] = 0;
+        acc[item.geo] += (item.population || 0);
+        return acc;
+      }, {});
+
+      const prevGroupWorkingAgeByCountry = prevYearDependencyData.workingAge.reduce((acc, item) => {
+        if (!acc[item.geo]) acc[item.geo] = 0;
+        acc[item.geo] += (item.population || 0);
+        return acc;
+      }, {});
+
+      // Calculate dependency ratio for current year
+      let currentDependencyRatio = 0;
+      let currentDependencyCount = 0;
+
+      for (const country in groupDependentsByCountry) {
+        if (groupWorkingAgeByCountry[country] && groupWorkingAgeByCountry[country] > 0) {
+          currentDependencyRatio += (groupDependentsByCountry[country] / groupWorkingAgeByCountry[country]) * 100;
+          currentDependencyCount++;
+        }
+      }
+
+      // Calculate dependency ratio for previous year
+      let prevDependencyRatio = 0;
+      let prevDependencyCount = 0;
+
+      for (const country in prevGroupDependentsByCountry) {
+        if (prevGroupWorkingAgeByCountry[country] && prevGroupWorkingAgeByCountry[country] > 0) {
+          prevDependencyRatio += (prevGroupDependentsByCountry[country] / prevGroupWorkingAgeByCountry[country]) * 100;
+          prevDependencyCount++;
+        }
+      }
+
+      const avgCurrentDependencyRatio = currentDependencyCount > 0 
+        ? currentDependencyRatio / currentDependencyCount 
+        : 0;
+
+      const avgPrevDependencyRatio = prevDependencyCount > 0 
+        ? prevDependencyRatio / prevDependencyCount 
+        : 0;
+
+      const dependencyTrend = avgPrevDependencyRatio !== 0 
+        ? ((avgCurrentDependencyRatio - avgPrevDependencyRatio) / avgPrevDependencyRatio) * 100 
         : 0;
 
       setMetricData({
@@ -241,6 +349,10 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         fertilityRate: { 
           value: avgCurrentFertility.toFixed(2), 
           trend: parseFloat(fertilityTrend.toFixed(1))
+        },
+        dependencyRatio: {
+          value: `${avgCurrentDependencyRatio.toFixed(1)}%`,
+          trend: parseFloat(dependencyTrend.toFixed(1))
         },
         isLoading: false
       });
@@ -293,24 +405,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       
       const uniqueYears = Array.from(new Set(yearsData.map(item => item.year))).sort((a, b) => a - b);
 
-      // Fetch population data
-      let populationQuery = supabase
-        .from('population')
-        .select('age, sex, population, year, geo, geo_data!inner(un_region)')
-        .eq('sex', 'Total')
-        .eq('age', 'Total')
-        .order('year', { ascending: false });
-
-      if (selectedRegion && selectedRegion !== 'all') {
-        populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
-      } else {
-        populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
-      }
-
-      const { data: populationData, error: populationError } = await populationQuery;
-      
-      if (populationError) throw populationError;
-
       // Fetch fertility data
       let fertilityQuery = supabase
         .from('fertility')
@@ -343,24 +437,21 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       
       if (laborError) throw laborError;
 
-      // Format population by country data
-      const latestYear = uniqueYears[uniqueYears.length - 1];
-      const populationByCountry = populationData
-        .filter(item => item.year === latestYear)
-        .map(item => {
-          const countryInfo = countriesData.find(c => c.geo === item.geo) || {
-            latitude: null,
-            longitude: null
-          };
-          
-          return {
-            country: item.geo,
-            region: item.geo_data.un_region,
-            population: item.population || 0,
-            latitude: countryInfo.latitude,
-            longitude: countryInfo.longitude
-          };
-        });
+      // Fetch population data for pyramid and dependency ratio
+      let populationQuery = supabase
+        .from('population')
+        .select('year, sex, age, population, geo, geo_data!inner(un_region)')
+        .order('year', { ascending: true });
+
+      if (selectedRegion && selectedRegion !== 'all') {
+        populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
+      } else {
+        populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+      }
+
+      const { data: populationData, error: populationError } = await populationQuery;
+      
+      if (populationError) throw populationError;
 
       // Format fertility data
       const formattedFertilityData = fertilityData
@@ -371,90 +462,170 @@ const useDashboardData = (selectedRegion: string = 'all') => {
           country: item.geo
         }));
 
-      // Calculate labor force rates by country and year
-      const laborForceRates: Record<string, Record<number, Record<string, number>>> = {};
+      // Calculate labor force rates by gender
+      const laborForceRates: Array<{ year: number; male: number; female: number; country: string }> = [];
       
-      // First, gather working age population by country, year, and gender
-      const workingAgePop: Record<string, Record<number, Record<string, number>>> = {};
-      
-      // Fetch working age population
-      let workingAgeQuery = supabase
-        .from('population')
-        .select('population, sex, age, year, geo, geo_data!inner(un_region)')
-        .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
-
-      if (selectedRegion && selectedRegion !== 'all') {
-        workingAgeQuery = workingAgeQuery.eq('geo_data.un_region', selectedRegion);
-      } else {
-        workingAgeQuery = workingAgeQuery.not('geo_data.un_region', 'eq', 'Western Asia');
-      }
-
-      const { data: workingAgeData, error: workingAgeError } = await workingAgeQuery;
-      
-      if (workingAgeError) throw workingAgeError;
-      
-      // Calculate working age population per country/year/gender
-      workingAgeData.forEach(item => {
-        const country = item.geo;
-        const year = item.year;
-        const sex = item.sex;
-        
-        if (!workingAgePop[country]) workingAgePop[country] = {};
-        if (!workingAgePop[country][year]) workingAgePop[country][year] = { male: 0, female: 0, total: 0 };
-        
-        if (sex === 'Male') {
-          workingAgePop[country][year].male += (item.population || 0);
-        } else if (sex === 'Female') {
-          workingAgePop[country][year].female += (item.population || 0);
+      // Group by country, year and gender
+      const laborByCountryYearGender = laborData.reduce((acc, item) => {
+        const key = `${item.geo}-${item.year}-${item.sex}`;
+        if (!acc[key]) {
+          acc[key] = {
+            country: item.geo,
+            year: item.year,
+            sex: item.sex,
+            laborForce: 0
+          };
         }
-        workingAgePop[country][year].total += (item.population || 0);
-      });
+        acc[key].laborForce += (item.labour_force || 0);
+        return acc;
+      }, {});
       
-      // Calculate labor force per country/year/gender
-      laborData.forEach(item => {
-        const country = item.geo;
-        const year = item.year;
-        const sex = item.sex;
-        
-        if (!laborForceRates[country]) laborForceRates[country] = {};
-        if (!laborForceRates[country][year]) laborForceRates[country][year] = { male: 0, female: 0 };
-        
-        // Convert from thousands to individuals for calculation
-        const laborForce = (item.labour_force || 0) * 1000;
-        
-        if (workingAgePop[country] && workingAgePop[country][year]) {
-          if (sex === 'Male' && workingAgePop[country][year].male > 0) {
-            laborForceRates[country][year].male = (laborForce / workingAgePop[country][year].male) * 100;
-          } else if (sex === 'Female' && workingAgePop[country][year].female > 0) {
-            laborForceRates[country][year].female = (laborForce / workingAgePop[country][year].female) * 100;
+      // Get working age population by country, year and gender
+      const populationByCountryYearGender = populationData.reduce((acc, item) => {
+        if (item.age.startsWith('From') && 
+            !item.age.includes('Total') && 
+            (parseInt(item.age.split(' ')[1]) >= 15 && parseInt(item.age.split(' ')[1]) <= 64 || 
+             parseInt(item.age.split(' ')[3]) >= 15 && parseInt(item.age.split(' ')[3]) <= 64)) {
+          const key = `${item.geo}-${item.year}-${item.sex}`;
+          if (!acc[key]) {
+            acc[key] = {
+              country: item.geo,
+              year: item.year,
+              sex: item.sex,
+              population: 0
+            };
+          }
+          acc[key].population += (item.population || 0);
+        }
+        return acc;
+      }, {});
+      
+      // Calculate labor force rates
+      Object.values(laborByCountryYearGender).forEach(laborItem => {
+        const popKey = `${laborItem.country}-${laborItem.year}-${laborItem.sex}`;
+        if (populationByCountryYearGender[popKey] && 
+            populationByCountryYearGender[popKey].population > 0) {
+          const rate = (laborItem.laborForce * 1000 / populationByCountryYearGender[popKey].population) * 100;
+          
+          if (laborItem.sex === 'Male' || laborItem.sex === 'Female') {
+            // Find existing entry or create new one
+            let entry = laborForceRates.find(item => 
+              item.country === laborItem.country && item.year === laborItem.year
+            );
+            
+            if (!entry) {
+              entry = { country: laborItem.country, year: laborItem.year, male: 0, female: 0 };
+              laborForceRates.push(entry);
+            }
+            
+            if (laborItem.sex === 'Male') {
+              entry.male = rate;
+            } else if (laborItem.sex === 'Female') {
+              entry.female = rate;
+            }
           }
         }
       });
+
+      // Prepare population pyramid data
+      const populationPyramidData: Array<{
+        age: string;
+        male: number;
+        female: number;
+        country: string;
+        year: number;
+      }> = [];
+
+      // Group population data by country, year, age and sex
+      const popByCountryYearAgeSex = populationData.reduce((acc, item) => {
+        if (item.sex !== 'Total' && item.age !== 'Total') {
+          const key = `${item.geo}-${item.year}-${item.age}`;
+          if (!acc[key]) {
+            acc[key] = {
+              country: item.geo,
+              year: item.year,
+              age: item.age,
+              male: 0,
+              female: 0
+            };
+          }
+          
+          if (item.sex === 'Male') {
+            acc[key].male = item.population || 0;
+          } else if (item.sex === 'Female') {
+            acc[key].female = item.population || 0;
+          }
+        }
+        return acc;
+      }, {});
       
-      // Format labor force data for charts
-      const processedLaborForceData: Array<{ year: number; male: number; female: number; country: string }> = [];
-      
-      // Calculate average across all countries if no specific country is selected
-      Object.entries(laborForceRates).forEach(([country, yearData]) => {
-        Object.entries(yearData).forEach(([yearStr, rates]) => {
-          const year = parseInt(yearStr);
-          processedLaborForceData.push({
-            year,
-            male: rates.male,
-            female: rates.female,
-            country
-          });
+      // Convert to array format
+      Object.values(popByCountryYearAgeSex).forEach(item => {
+        populationPyramidData.push(item);
+      });
+
+      // Calculate dependency ratio
+      const dependencyRatioData: Array<{
+        country: string;
+        region: string;
+        dependencyRatio: number;
+        year: number;
+        latitude: number | null;
+        longitude: number | null;
+      }> = [];
+
+      // Group population by country, year and age group (dependent vs. working age)
+      uniqueYears.forEach(year => {
+        const dependentsByCountry = {};
+        const workingAgeByCountry = {};
+        
+        populationData.forEach(item => {
+          if (item.year === year && item.sex === 'Total') {
+            const age = parseInt(item.age.split(' ')[1]);
+            const country = item.geo;
+            
+            // Initialize if not already done
+            if (!dependentsByCountry[country]) dependentsByCountry[country] = 0;
+            if (!workingAgeByCountry[country]) workingAgeByCountry[country] = 0;
+            
+            if (item.age === 'Total') {
+              // Skip total age group
+            } else if ((age >= 0 && age < 15) || age >= 65) {
+              dependentsByCountry[country] += (item.population || 0);
+            } else if (age >= 15 && age <= 64) {
+              workingAgeByCountry[country] += (item.population || 0);
+            }
+          }
+        });
+        
+        // Calculate dependency ratio for each country
+        Object.keys(dependentsByCountry).forEach(country => {
+          if (workingAgeByCountry[country] && workingAgeByCountry[country] > 0) {
+            const countryInfo = countriesData.find(c => c.geo === country) || {
+              un_region: '',
+              latitude: null,
+              longitude: null
+            };
+            
+            const ratio = (dependentsByCountry[country] / workingAgeByCountry[country]) * 100;
+            
+            dependencyRatioData.push({
+              country,
+              region: countryInfo.un_region,
+              dependencyRatio: ratio,
+              year,
+              latitude: countryInfo.latitude,
+              longitude: countryInfo.longitude
+            });
+          }
         });
       });
-      
-      // Sort by year for proper display
-      processedLaborForceData.sort((a, b) => a.year - b.year);
 
       setChartData({
-        populationData: [], // Not using this chart anymore
         fertilityData: formattedFertilityData,
-        laborForceData: processedLaborForceData,
-        populationByCountry,
+        laborForceData: laborForceRates,
+        populationPyramidData,
+        dependencyRatioData,
         regions: uniqueRegions,
         countries: countriesData,
         years: uniqueYears,
@@ -468,6 +639,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
   };
 
   useEffect(() => {
+    setIsLoading(true);
     fetchMetricData();
     fetchChartData();
   }, [selectedRegion]);
@@ -475,9 +647,9 @@ const useDashboardData = (selectedRegion: string = 'all') => {
   return {
     metricData,
     chartData,
+    isLoading,
     refresh: () => {
-      setMetricData(prev => ({ ...prev, isLoading: true }));
-      setChartData(prev => ({ ...prev, isLoading: true }));
+      setIsLoading(true);
       fetchMetricData();
       fetchChartData();
     }
