@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  FertilityTrendChart,
+  FertilityRateChart,
   PopulationPyramidChart,
   DependencyRatioMap,
   LaborForceChart
