@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -177,9 +176,10 @@ export function Dashboard() {
                     <p className="text-gray-500">No fertility data available</p>
                   </div>
                 ) : (
-                  <FertilityTrendChart 
+                  <FertilityRateChart 
                     data={chartData.fertilityData} 
                     selectedCountry={selectedCountry}
+                    laborForceData={chartData.laborForceData}
                   />
                 )}
               </div>
