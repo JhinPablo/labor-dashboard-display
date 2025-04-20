@@ -6,7 +6,8 @@ import {
   LineChart as LineChartIcon,
   BarChart,
   Map,
-  AlertCircle
+  AlertCircle,
+  BadgeInfo
 } from 'lucide-react';
 import MetricCard from './MetricCard';
 import {
@@ -24,8 +25,11 @@ import {
 } from './DemographicCharts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import useDashboardData from '@/hooks/useDashboardData';
 import { testConnection } from '@/lib/supabaseClient';
+import { toast } from 'sonner';
 
 export function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
@@ -34,7 +38,8 @@ export function Dashboard() {
   const [debugMode, setDebugMode] = useState<boolean>(true);
   const [supabaseStatus, setSupabaseStatus] = useState<boolean | null>(null);
   
-  const { metricData, chartData, isLoading, error, refresh } = useDashboardData(selectedRegion);
+  // Pass both selectedRegion and selectedCountry to the hook
+  const { metricData, chartData, isLoading, error, refresh } = useDashboardData(selectedRegion, selectedCountry);
 
   useEffect(() => {
     // Test Supabase connection on component mount
@@ -42,6 +47,10 @@ export function Dashboard() {
       const status = await testConnection();
       setSupabaseStatus(status);
       console.log("Supabase connection status:", status);
+      
+      if (!status) {
+        toast.error("Failed to connect to Supabase database");
+      }
     };
     
     checkSupabase();
@@ -51,11 +60,13 @@ export function Dashboard() {
     console.log("Region changed to:", region);
     setSelectedRegion(region);
     setSelectedCountry('all'); // Reset country filter when region changes
+    setSelectedYear(null); // Reset year when region changes
   };
 
   const handleCountryChange = (country: string) => {
     console.log("Country changed to:", country);
     setSelectedCountry(country);
+    setSelectedYear(null); // Reset year when country changes
   };
 
   const handleYearChange = (year: string) => {
@@ -63,12 +74,23 @@ export function Dashboard() {
     setSelectedYear(parseInt(year));
   };
 
-  // Get the latest year from chart data
-  const latestYear = chartData.years && chartData.years.length > 0 
-    ? Math.max(...chartData.years)
+  // Get available years based on selection
+  const getAvailableYears = (): number[] => {
+    if (selectedCountry !== 'all') {
+      return chartData.yearsByCountry[selectedCountry] || chartData.years;
+    } else if (selectedRegion !== 'all') {
+      return chartData.yearsByRegion[selectedRegion] || chartData.years;
+    }
+    return chartData.years;
+  };
+
+  // Get the latest year from available years
+  const availableYears = getAvailableYears();
+  const latestYear = availableYears && availableYears.length > 0 
+    ? availableYears[0] 
     : new Date().getFullYear();
 
-  // If no year is selected, use the latest year
+  // If no year is selected, use the latest available year
   const effectiveYear = selectedYear || latestYear;
 
   // Filter countries based on selected region
@@ -96,12 +118,18 @@ export function Dashboard() {
             <div className="mt-3 text-sm space-y-2 bg-white p-3 rounded">
               <div><strong>Supabase Connection:</strong> {supabaseStatus === null ? 'Checking...' : (supabaseStatus ? 'Connected ✅' : 'Failed ❌')}</div>
               <div><strong>Loading State:</strong> {isLoading ? 'Loading... ⏳' : 'Complete ✅'}</div>
+              <div><strong>Metrics Loading:</strong> 
+                {metricData.populationTotal.isLoading ? 'Population ⏳ ' : 'Population ✅ '}
+                {metricData.laborForceRate.isLoading ? 'Labor ⏳ ' : 'Labor ✅ '}
+                {metricData.fertilityRate.isLoading ? 'Fertility ⏳ ' : 'Fertility ✅ '}
+                {metricData.dependencyRatio.isLoading ? 'Dependency ⏳' : 'Dependency ✅'}
+              </div>
               <div><strong>Error:</strong> {error ? `❌ ${error}` : 'None ✅'}</div>
               <div><strong>Selected Region:</strong> {selectedRegion}</div>
               <div><strong>Selected Country:</strong> {selectedCountry}</div>
-              <div><strong>Selected Year:</strong> {effectiveYear}</div>
-              <div><strong>Available Years:</strong> {chartData.years.length}</div>
-              <div><strong>Available Countries:</strong> {chartData.countries.length}</div>
+              <div><strong>Selected Year:</strong> {effectiveYear || 'None'}</div>
+              <div><strong>Available Years:</strong> {availableYears?.length || 0}</div>
+              <div><strong>Available Countries:</strong> {chartData.countries?.length || 0}</div>
               <div className="mt-3">
                 <button 
                   className="text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded"
@@ -153,49 +181,133 @@ export function Dashboard() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-animation">
-          <MetricCard
-            title="Total Population"
-            value={isLoading ? "Loading..." : metricData.populationTotal.value}
-            icon={<Users className="h-6 w-6" />}
-            trend={{ 
-              value: metricData.populationTotal.trend, 
-              isPositive: metricData.populationTotal.trend >= 0 
-            }}
-          />
-          <MetricCard
-            title="Labor Force Rate"
-            value={isLoading ? "Loading..." : metricData.laborForceRate.value}
-            icon={<BarChart className="h-6 w-6" />}
-            trend={{ 
-              value: metricData.laborForceRate.trend, 
-              isPositive: metricData.laborForceRate.trend >= 0 
-            }}
-          />
-          <MetricCard
-            title="Fertility Rate"
-            value={isLoading ? "Loading..." : metricData.fertilityRate.value}
-            icon={<LineChartIcon className="h-6 w-6" />}
-            trend={{ 
-              value: metricData.fertilityRate.trend, 
-              isPositive: metricData.fertilityRate.trend >= 0 
-            }}
-          />
-          <MetricCard
-            title="Dependency Ratio"
-            value={isLoading ? "Loading..." : metricData.dependencyRatio.value}
-            icon={<CircleUser className="h-6 w-6" />}
-            trend={{ 
-              value: metricData.dependencyRatio.trend, 
-              isPositive: metricData.dependencyRatio.trend < 0  // Lower dependency ratio is generally considered positive
-            }}
-          />
+          {/* Population Total Card */}
+          {metricData.populationTotal.isLoading ? (
+            <Card className="bg-white rounded-lg border shadow p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-500">Total Population</p>
+                  <Skeleton className="h-9 w-24 mt-1" />
+                </div>
+                <div className="h-10 w-10 rounded-full bg-labor-100/30 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-labor-500/70" />
+                </div>
+              </div>
+              <Skeleton className="h-4 w-16 mt-2" />
+            </Card>
+          ) : (
+            <MetricCard
+              title="Total Population"
+              value={metricData.populationTotal.value}
+              icon={<Users className="h-6 w-6" />}
+              trend={{ 
+                value: metricData.populationTotal.trend, 
+                isPositive: metricData.populationTotal.trend >= 0 
+              }}
+            />
+          )}
+
+          {/* Labor Force Rate Card */}
+          {metricData.laborForceRate.isLoading ? (
+            <Card className="bg-white rounded-lg border shadow p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-500">Labor Force Rate</p>
+                  <Skeleton className="h-9 w-24 mt-1" />
+                </div>
+                <div className="h-10 w-10 rounded-full bg-labor-100/30 flex items-center justify-center">
+                  <BarChart className="h-6 w-6 text-labor-500/70" />
+                </div>
+              </div>
+              <Skeleton className="h-4 w-16 mt-2" />
+            </Card>
+          ) : (
+            <MetricCard
+              title="Labor Force Rate"
+              value={metricData.laborForceRate.value}
+              icon={<BarChart className="h-6 w-6" />}
+              trend={{ 
+                value: metricData.laborForceRate.trend, 
+                isPositive: metricData.laborForceRate.trend >= 0 
+              }}
+            />
+          )}
+
+          {/* Fertility Rate Card */}
+          {metricData.fertilityRate.isLoading ? (
+            <Card className="bg-white rounded-lg border shadow p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-500">Fertility Rate</p>
+                  <Skeleton className="h-9 w-24 mt-1" />
+                </div>
+                <div className="h-10 w-10 rounded-full bg-labor-100/30 flex items-center justify-center">
+                  <LineChartIcon className="h-6 w-6 text-labor-500/70" />
+                </div>
+              </div>
+              <Skeleton className="h-4 w-16 mt-2" />
+            </Card>
+          ) : (
+            <MetricCard
+              title="Fertility Rate"
+              value={metricData.fertilityRate.value}
+              icon={<LineChartIcon className="h-6 w-6" />}
+              trend={{ 
+                value: metricData.fertilityRate.trend, 
+                isPositive: metricData.fertilityRate.trend >= 0 
+              }}
+            />
+          )}
+
+          {/* Dependency Ratio Card */}
+          {metricData.dependencyRatio.isLoading ? (
+            <Card className="bg-white rounded-lg border shadow p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm text-gray-500">Dependency Ratio</p>
+                  <Skeleton className="h-9 w-24 mt-1" />
+                </div>
+                <div className="h-10 w-10 rounded-full bg-labor-100/30 flex items-center justify-center">
+                  <CircleUser className="h-6 w-6 text-labor-500/70" />
+                </div>
+              </div>
+              <Skeleton className="h-4 w-16 mt-2" />
+            </Card>
+          ) : (
+            <MetricCard
+              title="Dependency Ratio"
+              value={metricData.dependencyRatio.value}
+              icon={<CircleUser className="h-6 w-6" />}
+              trend={{ 
+                value: metricData.dependencyRatio.trend, 
+                isPositive: metricData.dependencyRatio.trend < 0  // Lower dependency ratio is generally considered positive
+              }}
+            />
+          )}
         </div>
       </section>
       
       {/* Demographic Analysis Section */}
       <section className="space-y-5">
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-xl font-medium text-labor-800">Demographic Analysis</h2>
+          <div className="flex items-center">
+            <h2 className="text-xl font-medium text-labor-800">Demographic Analysis</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="ml-2 text-gray-400 hover:text-gray-600">
+                    <BadgeInfo className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    Year dropdown shows only the years with data available
+                    for the selected country or region.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <Select 
               value={selectedCountry} 
@@ -219,16 +331,22 @@ export function Dashboard() {
             <Select 
               value={effectiveYear?.toString() || ''} 
               onValueChange={handleYearChange}
+              disabled={availableYears.length === 0}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Year" />
+                <SelectValue placeholder={availableYears.length === 0 ? "No years available" : "Select Year"} />
               </SelectTrigger>
               <SelectContent>
-                {chartData.years && chartData.years.map((year) => (
+                {availableYears && availableYears.map((year) => (
                   <SelectItem key={year} value={year.toString()}>
                     {year}
                   </SelectItem>
                 ))}
+                {availableYears.length === 0 && (
+                  <SelectItem disabled value="">
+                    No years available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -240,13 +358,18 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Fertility Trend</h3>
               <div className="h-[350px]">
-                {isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Loading data...</p>
+                {chartData.isLoading ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center">
+                    <Skeleton className="h-4/5 w-full rounded-md" />
+                    <div className="mt-4 text-gray-500 text-sm">Loading chart data...</div>
                   </div>
                 ) : chartData.fertilityData.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">No fertility data available</p>
+                    <div className="text-center">
+                      <LineChartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">No fertility data available</p>
+                      <p className="text-gray-400 text-sm">Try selecting a different region or country</p>
+                    </div>
                   </div>
                 ) : (
                   <FertilityRateChart 
@@ -264,9 +387,18 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Dependency Ratio by Country</h3>
               <div className="h-[350px]">
-                {isLoading ? (
+                {chartData.isLoading ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center">
+                    <Skeleton className="h-4/5 w-full rounded-md" />
+                    <div className="mt-4 text-gray-500 text-sm">Loading map data...</div>
+                  </div>
+                ) : chartData.dependencyRatioData.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Loading data...</p>
+                    <div className="text-center">
+                      <Map className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">No dependency ratio data available</p>
+                      <p className="text-gray-400 text-sm">Try selecting a different year</p>
+                    </div>
                   </div>
                 ) : (
                   <DependencyRatioMap
@@ -286,9 +418,18 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Population Pyramid</h3>
               <div className="h-[450px]">
-                {isLoading ? (
+                {chartData.isLoading ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center">
+                    <Skeleton className="h-4/5 w-full rounded-md" />
+                    <div className="mt-4 text-gray-500 text-sm">Loading population data...</div>
+                  </div>
+                ) : chartData.populationPyramidData.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Loading data...</p>
+                    <div className="text-center">
+                      <Users className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">No population pyramid data available</p>
+                      <p className="text-gray-400 text-sm">Try selecting a different country or year</p>
+                    </div>
                   </div>
                 ) : (
                   <PopulationPyramidChart
@@ -306,9 +447,18 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Labor Force by Gender</h3>
               <div className="h-[450px]">
-                {isLoading ? (
+                {chartData.isLoading ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center">
+                    <Skeleton className="h-4/5 w-full rounded-md" />
+                    <div className="mt-4 text-gray-500 text-sm">Loading labor force data...</div>
+                  </div>
+                ) : chartData.laborForceData.length === 0 ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">Loading data...</p>
+                    <div className="text-center">
+                      <BarChart className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-gray-500">No labor force data available</p>
+                      <p className="text-gray-400 text-sm">Try selecting a different region or country</p>
+                    </div>
                   </div>
                 ) : (
                   <LaborForceChart 
