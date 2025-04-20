@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   CircleUser, 
@@ -19,8 +19,8 @@ import {
   FertilityTrendChart,
   PopulationPyramidChart,
   DependencyRatioMap,
-  LaborForceByGenderChart
-} from './DashboardCharts';
+  LaborForceChart
+} from './DemographicCharts';
 import { Card, CardContent } from '@/components/ui/card';
 import useDashboardData from '@/hooks/useDashboardData';
 
@@ -83,7 +83,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stagger-animation">
           <MetricCard
             title="Total Population"
-            value={metricData.populationTotal.value}
+            value={isLoading ? "Loading..." : metricData.populationTotal.value}
             icon={<Users className="h-6 w-6" />}
             trend={{ 
               value: metricData.populationTotal.trend, 
@@ -92,7 +92,7 @@ export function Dashboard() {
           />
           <MetricCard
             title="Labor Force Rate"
-            value={metricData.laborForceRate.value}
+            value={isLoading ? "Loading..." : metricData.laborForceRate.value}
             icon={<BarChart className="h-6 w-6" />}
             trend={{ 
               value: metricData.laborForceRate.trend, 
@@ -101,7 +101,7 @@ export function Dashboard() {
           />
           <MetricCard
             title="Fertility Rate"
-            value={metricData.fertilityRate.value}
+            value={isLoading ? "Loading..." : metricData.fertilityRate.value}
             icon={<LineChartIcon className="h-6 w-6" />}
             trend={{ 
               value: metricData.fertilityRate.trend, 
@@ -110,7 +110,7 @@ export function Dashboard() {
           />
           <MetricCard
             title="Dependency Ratio"
-            value={metricData.dependencyRatio.value}
+            value={isLoading ? "Loading..." : metricData.dependencyRatio.value}
             icon={<CircleUser className="h-6 w-6" />}
             trend={{ 
               value: metricData.dependencyRatio.trend, 
@@ -168,10 +168,20 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Fertility Trend</h3>
               <div className="h-[350px]">
-                <FertilityTrendChart 
-                  data={chartData.fertilityData} 
-                  selectedCountry={selectedCountry}
-                />
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">Loading data...</p>
+                  </div>
+                ) : chartData.fertilityData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">No fertility data available</p>
+                  </div>
+                ) : (
+                  <FertilityTrendChart 
+                    data={chartData.fertilityData} 
+                    selectedCountry={selectedCountry}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -181,11 +191,17 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Dependency Ratio by Country</h3>
               <div className="h-[350px]">
-                <DependencyRatioMap
-                  data={chartData.dependencyRatioData}
-                  year={effectiveYear}
-                  icon={<Map className="h-6 w-6 text-labor-500" />}
-                />
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">Loading data...</p>
+                  </div>
+                ) : (
+                  <DependencyRatioMap
+                    data={chartData.dependencyRatioData}
+                    year={effectiveYear}
+                    icon={<Map className="h-6 w-6 text-labor-500" />}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -197,11 +213,17 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Population Pyramid</h3>
               <div className="h-[450px]">
-                <PopulationPyramidChart
-                  data={chartData.populationPyramidData}
-                  selectedCountry={selectedCountry}
-                  year={effectiveYear}
-                />
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">Loading data...</p>
+                  </div>
+                ) : (
+                  <PopulationPyramidChart
+                    data={chartData.populationPyramidData}
+                    selectedCountry={selectedCountry}
+                    year={effectiveYear}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -211,10 +233,16 @@ export function Dashboard() {
             <CardContent className="p-4">
               <h3 className="text-lg font-medium mb-4">Labor Force by Gender</h3>
               <div className="h-[450px]">
-                <LaborForceByGenderChart 
-                  data={chartData.laborForceData} 
-                  selectedCountry={selectedCountry}
-                />
+                {isLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500">Loading data...</p>
+                  </div>
+                ) : (
+                  <LaborForceChart 
+                    data={chartData.laborForceData} 
+                    selectedCountry={selectedCountry}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
