@@ -1,5 +1,10 @@
-
-import React from 'react';
+import React, { useState } from 'react';
+import { Tooltip as ReactTooltip } from 'react-tooltip';
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+} from 'react-simple-maps';
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,7 +17,9 @@ import {
   LineChart,
   Line,
 } from 'recharts';
+import { scaleLinear } from 'd3-scale';
 import { Card, CardContent } from '@/components/ui/card';
+
 
 // Helper function to safely format numbers
 const safelyFormatNumber = (value: any): string => {
@@ -221,59 +228,161 @@ export const PopulationPyramidChart = ({
   );
 };
 
-// Dependency Ratio Map Chart
-export const DependencyRatioMap = ({ 
+// // Dependency Ratio Map Chart
+// export const DependencyRatioMap = ({ 
+//   data = [],
+//   year,
+//   icon
+// }: { 
+//   data: Array<{ 
+//     country: string; 
+//     region: string; 
+//     dependencyRatio: number; 
+//     year: number; 
+//     latitude: number | null; 
+//     longitude: number | null; 
+//   }>;
+//   year: number;
+//   icon?: React.ReactNode;
+// }) => {
+//   // Filter data for the selected year
+//   const filteredData = data.filter(item => item.year === year);
+  
+//   // Sort countries by dependency ratio
+//   const sortedData = [...filteredData].sort((a, b) => b.dependencyRatio - a.dependencyRatio);
+//   const topCountries = sortedData.slice(0, 20);
+  
+//   return (
+//     <div className="h-full flex flex-col">
+//       <div className="flex-1 flex items-center justify-center text-labor-500">
+//         <div className="text-center">
+//           {icon}
+//           <p className="mt-2">Map visualization would go here (requires mapping library)</p>
+//         </div>
+//       </div>
+      
+//       <div className="mt-4">
+//         <h4 className="text-sm font-medium mb-2">Top 20 Countries by Dependency Ratio</h4>
+//         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+//           {topCountries.map((item) => (
+//             <Card key={item.country} className="bg-labor-50 border-0 shadow-sm">
+//               <CardContent className="p-4">
+//                 <div className="font-medium truncate" title={item.country}>
+//                   {item.country}
+//                 </div>
+//                 <div className="text-labor-600 text-sm">
+//                   {item.dependencyRatio.toFixed(1)}%
+//                 </div>
+//               </CardContent>
+//             </Card>
+//           ))}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+const geoUrl = 'https://raw.githubusercontent.com/leakyMirror/map-of-europe/master/TopoJSON/europe.topojson';
+
+export const DependencyRatioMap = ({
   data = [],
   year,
-  icon
-}: { 
-  data: Array<{ 
-    country: string; 
-    region: string; 
-    dependencyRatio: number; 
-    year: number; 
-    latitude: number | null; 
-    longitude: number | null; 
+}: {
+  data: Array<{
+    country: string;
+    region: string;
+    dependencyRatio: number;
+    year: number;
+    latitude: number | null;
+    longitude: number | null;
   }>;
   year: number;
-  icon?: React.ReactNode;
 }) => {
-  // Filter data for the selected year
-  const filteredData = data.filter(item => item.year === year);
-  
-  // Sort countries by dependency ratio
-  const sortedData = [...filteredData].sort((a, b) => b.dependencyRatio - a.dependencyRatio);
-  const topCountries = sortedData.slice(0, 20);
-  
+  const [tooltipContent, setTooltipContent] = useState('');
+
+  const filteredData = data.filter((d) => d.year === year);
+
+  // Color scale (azul)
+  const colorScale = scaleLinear<string>()
+    .domain([20, 60]) // min y max según tu dataset
+    .range(['#dbeafe', '#2563eb']); // tonos azules
+
+  const ratioMap = filteredData.reduce((acc, curr) => {
+    acc[curr.country] = curr.dependencyRatio;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 flex items-center justify-center text-labor-500">
-        <div className="text-center">
-          {icon}
-          <p className="mt-2">Map visualization would go here (requires mapping library)</p>
-        </div>
+    <div className="flex flex-col space-y-6">
+      {/* Mapa con altura fija y margen inferior */}
+      <div className="h-[380px] w-full rounded-md border bg-white shadow-sm">
+        <ComposableMap
+          projection="geoEqualEarth"
+          projectionConfig={{ scale: 800, center: [15, 52] }}
+          data-tip=""
+          className="w-full h-full"
+        >
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const country = geo.properties.NAME;
+                const value = ratioMap[country];
+
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    onMouseEnter={() =>
+                      setTooltipContent(
+                        `${country}: ${value ? value.toFixed(1) + '%' : 'No data'}`
+                      )
+                    }
+                    onMouseLeave={() => setTooltipContent('')}
+                    data-tooltip-id="dep-tooltip"
+                    data-tooltip-content={`${country}: ${value ? value.toFixed(1) + '%' : 'No data'}`}
+                    fill={value ? colorScale(value) : '#E5E7EB'} // gris si no hay datos
+                    stroke="#D1D5DB"
+                    style={{
+                      default: { outline: 'none' },
+                      hover: { fill: '#facc15', outline: 'none' },
+                      pressed: { fill: '#f59e0b', outline: 'none' },
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        </ComposableMap>
+        <ReactTooltip id="dep-tooltip" />
       </div>
-      
-      <div className="mt-4">
-        <h4 className="text-sm font-medium mb-2">Top 20 Countries by Dependency Ratio</h4>
+
+      {/* Tarjetas del Top 20 */}
+      <div>
+        <h4 className="text-sm font-medium mb-2 text-labor-800">
+          Top 20 Countries by Dependency Ratio
+        </h4>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {topCountries.map((item) => (
-            <Card key={item.country} className="bg-labor-50 border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="font-medium truncate" title={item.country}>
-                  {item.country}
-                </div>
-                <div className="text-labor-600 text-sm">
-                  {item.dependencyRatio.toFixed(1)}%
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {[...filteredData]
+            .sort((a, b) => b.dependencyRatio - a.dependencyRatio)
+            .slice(0, 20)
+            .map((item) => (
+              <Card key={item.country} className="bg-labor-50 border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="font-medium truncate" title={item.country}>
+                    {item.country}
+                  </div>
+                  <div className="text-labor-600 text-sm">
+                    {item.dependencyRatio.toFixed(1)}%
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
         </div>
       </div>
     </div>
   );
 };
+
 
 // Labor Force by Gender Chart
 export const LaborForceByGenderChart = ({ 

@@ -38,7 +38,8 @@
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import Dashboard from "./components/Dashboard";
+// import Dashboard from "./components/Dashboard";
+import { Dashboard } from './components/Dashboard';
 import SubscriptionPlans from "./components/SubscriptionPlans";
 import Analytics from "./pages/Analytics";
 import PredictionTab from "./components/PredictionTab";

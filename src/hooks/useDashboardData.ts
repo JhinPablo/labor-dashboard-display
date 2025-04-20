@@ -79,6 +79,13 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       selectedRegion === 'all' || item.geo_data?.un_region === selectedRegion
     ) || [];
 
+
+    const fertilityFormatted = fertilityData.map(item => ({
+      year: item.year,
+      rate: item.fertility_rate,
+      country: item.geo
+    }));
+
     // Labor Force by Gender
     const { data: laborRaw } = await supabase
       .from('labor')
@@ -229,7 +236,8 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     });
 
     setChartData({
-      fertilityData,
+      // fertilityData,
+      fertilityData: fertilityFormatted,
       laborForceData: combinedLabor,
       populationPyramidData: pyramidData,
       dependencyRatioData,

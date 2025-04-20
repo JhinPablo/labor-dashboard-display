@@ -26,6 +26,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import useDashboardData from '@/hooks/useDashboardData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DependencyRatioMapModal } from './DependencyRatioMapModal';
 
 export function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
@@ -36,7 +37,7 @@ export function Dashboard() {
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region);
     setSelectedCountry('all'); // Reset country filter when region changes
-    setSelectedYear(null); // Reset year filter when region changes
+    // setSelectedYear(null); // Reset year filter when region changes
   };
 
   const handleCountryChange = (country: string) => {
@@ -177,12 +178,37 @@ export function Dashboard() {
               </SelectContent>
             </Select>
 
-            <Select 
+            {/* <Select 
               value={yearOptions.includes(effectiveYear.toString()) ? effectiveYear.toString() : 
                     (yearOptions[0] === 'no-data' ? 'no-data' : yearOptions[yearOptions.length - 1].toString())}
               onValueChange={handleYearChange}
               disabled={yearOptions.length <= 1 && yearOptions[0] === 'no-data'}
+            > */}
+            {/* <Select
+              value={
+                selectedYear !== null && yearOptions.includes(selectedYear.toString())
+                  ? selectedYear.toString()
+                  : yearOptions.length > 0
+                    ? yearOptions[yearOptions.length - 1].toString()
+                    : 'no-data'
+              }
+              onValueChange={handleYearChange}
+              disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
+            > */}
+            <Select
+              value={
+                selectedYear !== null
+                  ? selectedYear.toString()
+                  : latestYear?.toString() || 'no-data'
+              }
+              onValueChange={handleYearChange}
+              disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
             >
+
+
+
+
+
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
@@ -235,11 +261,34 @@ export function Dashboard() {
                     <Loader className="h-8 w-8 animate-spin text-labor-500" />
                   </div>
                 ) : chartData.dependencyRatioData.length > 0 ? (
-                  <DependencyRatioMap
-                    data={chartData.dependencyRatioData}
-                    year={effectiveYear}
-                    icon={<Map className="h-6 w-6 text-labor-500" />}
-                  />
+                  
+
+                  <div className="p-4 space-y-4">
+                    <h4 className="text-sm font-medium text-labor-800">Top 3 Countries by Dependency Ratio</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[...chartData.dependencyRatioData]
+                        .filter(d => d.year === effectiveYear)
+                        .sort((a, b) => b.dependencyRatio - a.dependencyRatio)
+                        .slice(0, 3)
+                        .map((item) => (
+                          <Card key={item.country} className="bg-labor-50 shadow-sm border">
+                            <CardContent className="p-3">
+                              <div className="font-semibold">{item.country}</div>
+                              <div className="text-sm text-labor-600">{item.dependencyRatio.toFixed(1)}%</div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                    </div>
+
+
+
+
+                    
+                    <DependencyRatioMapModal data={chartData.dependencyRatioData} year={effectiveYear} />
+                  </div>
+
+
+
                 ) : (
                   <div className="h-full flex items-center justify-center">
                     <div className="text-center">
