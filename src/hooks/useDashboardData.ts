@@ -51,46 +51,114 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchMetricData = async () => {
+  // Fetch available years based on selected region/country
+  const fetchAvailableYears = async () => {
     try {
-      // Get available years from population data
-      const { data: yearsData, error: yearsError } = await supabase
+      let yearsQuery = supabase
         .from('population')
         .select('year')
-        .order('year', { ascending: false })
-        .limit(10);
-
-      if (yearsError) throw yearsError;
+        .eq('sex', 'Total')
+        .eq('age', 'Total')
+        .order('year', { ascending: true });
       
-      const uniqueYears = Array.from(new Set(yearsData.map(item => item.year))).sort((a, b) => b - a);
-      const currentYear = uniqueYears[0] || 0;
-      const previousYear = uniqueYears[1] || 0;
-      
-      // Calculate population totals for current and previous year
-      const fetchPopulationForYear = async (year: number) => {
-        let populationQuery = supabase
-          .from('population')
-          .select('population, geo, geo_data!inner(un_region)')
-          .eq('sex', 'Total')
-          .eq('age', 'Total')
-          .eq('year', year);
+      if (selectedRegion && selectedRegion !== 'all') {
+        const { data: geoData } = await supabase
+          .from('geo_data')
+          .select('geo')
+          .eq('un_region', selectedRegion);
         
-        if (selectedRegion && selectedRegion !== 'all') {
-          populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
-        } else if (selectedRegion === 'all') {
-          // Exclude Western Asia if "all" is selected
-          populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+        if (geoData && geoData.length > 0) {
+          const geoList = geoData.map(item => item.geo);
+          yearsQuery = yearsQuery.in('geo', geoList);
         }
+      } else if (selectedRegion === 'all') {
+        // Exclude Western Asia if "all" is selected
+        const { data: geoData } = await supabase
+          .from('geo_data')
+          .select('geo')
+          .not('un_region', 'eq', 'Western Asia');
+          
+        if (geoData && geoData.length > 0) {
+          const geoList = geoData.map(item => item.geo);
+          yearsQuery = yearsQuery.in('geo', geoList);
+        }
+      }
 
-        return await populationQuery;
+      const { data: yearsData, error: yearsError } = await yearsQuery;
+      
+      if (yearsError) {
+        console.error('Error fetching years:', yearsError);
+        toast.error('Failed to load year data');
+        return [];
+      }
+      
+      // Extract unique years and sort them
+      const uniqueYears = Array.from(new Set(yearsData.map(item => item.year))).sort((a, b) => a - b);
+      return uniqueYears;
+    } catch (error) {
+      console.error('Error in fetchAvailableYears:', error);
+      toast.error('Failed to load year data');
+      return [];
+    }
+  };
+
+  const fetchMetricData = async (year: number | null) => {
+    try {
+      // Get available years
+      const availableYears = await fetchAvailableYears();
+      
+      if (!availableYears || availableYears.length === 0) {
+        setMetricData(prev => ({
+          ...prev,
+          isLoading: false,
+          populationTotal: { value: 'No data', trend: 0 },
+          laborForceRate: { value: 'No data', trend: 0 },
+          fertilityRate: { value: 'No data', trend: 0 },
+          dependencyRatio: { value: 'No data', trend: 0 }
+        }));
+        return;
+      }
+
+      // If no year is provided, use the latest year
+      const currentYear = year || availableYears[availableYears.length - 1];
+      
+      // Find previous year (not necessarily currentYear - 1, but the previous available year)
+      const currentYearIndex = availableYears.indexOf(currentYear);
+      const previousYear = currentYearIndex > 0 ? availableYears[currentYearIndex - 1] : null;
+
+      // 1. Calculate population totals
+      const fetchPopulationForYear = async (year: number) => {
+        try {
+          let populationQuery = supabase
+            .from('population')
+            .select('population, geo, geo_data!inner(un_region)')
+            .eq('sex', 'Total')
+            .eq('age', 'Total')
+            .eq('year', year);
+          
+          if (selectedRegion && selectedRegion !== 'all') {
+            populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
+          } else {
+            populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          }
+
+          const { data, error } = await populationQuery;
+          
+          if (error) {
+            console.error(`Error fetching population for year ${year}:`, error);
+            return [];
+          }
+          
+          return data || [];
+        } catch (error) {
+          console.error(`Error in fetchPopulationForYear for ${year}:`, error);
+          return [];
+        }
       };
 
-      const { data: currentYearPopulation, error: currentPopErr } = await fetchPopulationForYear(currentYear);
-      if (currentPopErr) throw currentPopErr;
-
-      const { data: prevYearPopulation, error: prevPopErr } = await fetchPopulationForYear(previousYear);
-      if (prevPopErr) throw prevPopErr;
-
+      const currentYearPopulation = await fetchPopulationForYear(currentYear);
+      const prevYearPopulation = previousYear ? await fetchPopulationForYear(previousYear) : [];
+      
       const currentTotalPop = currentYearPopulation.reduce((sum, item) => sum + (item.population || 0), 0) / 1000000;
       const prevTotalPop = prevYearPopulation.reduce((sum, item) => sum + (item.population || 0), 0) / 1000000;
       
@@ -98,51 +166,60 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         ? ((currentTotalPop - prevTotalPop) / prevTotalPop) * 100 
         : 0;
 
-      // Calculate labor force rate for current and previous year
+      // 2. Calculate labor force rate
       const fetchLaborForce = async (year: number) => {
-        let laborQuery = supabase
-          .from('labor')
-          .select('labour_force, sex, geo, geo_data!inner(un_region)')
-          .eq('year', year);
-        
-        let populationQuery = supabase
-          .from('population')
-          .select('population, sex, age, geo, geo_data!inner(un_region)')
-          .eq('year', year)
-          .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
+        try {
+          let laborQuery = supabase
+            .from('labor')
+            .select('labour_force, sex, geo, geo_data!inner(un_region)')
+            .eq('year', year)
+            .eq('sex', 'Total');
+          
+          let populationQuery = supabase
+            .from('population')
+            .select('population, sex, age, geo, geo_data!inner(un_region)')
+            .eq('year', year)
+            .eq('sex', 'Total')
+            .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
 
-        if (selectedRegion && selectedRegion !== 'all') {
-          laborQuery = laborQuery.eq('geo_data.un_region', selectedRegion);
-          populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
-        } else if (selectedRegion === 'all') {
-          // Exclude Western Asia if "all" is selected
-          laborQuery = laborQuery.not('geo_data.un_region', 'eq', 'Western Asia');
-          populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          if (selectedRegion && selectedRegion !== 'all') {
+            laborQuery = laborQuery.eq('geo_data.un_region', selectedRegion);
+            populationQuery = populationQuery.eq('geo_data.un_region', selectedRegion);
+          } else {
+            laborQuery = laborQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+            populationQuery = populationQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          }
+
+          const [laborResult, populationResult] = await Promise.all([
+            laborQuery,
+            populationQuery
+          ]);
+          
+          if (laborResult.error) {
+            console.error(`Error fetching labor force for year ${year}:`, laborResult.error);
+            return { labor: [], population: [] };
+          }
+          
+          if (populationResult.error) {
+            console.error(`Error fetching population for labor force calc for year ${year}:`, populationResult.error);
+            return { labor: [], population: [] };
+          }
+
+          return {
+            labor: laborResult.data || [],
+            population: populationResult.data || []
+          };
+        } catch (error) {
+          console.error(`Error in fetchLaborForce for ${year}:`, error);
+          return { labor: [], population: [] };
         }
-
-        const [laborResult, populationResult] = await Promise.all([
-          laborQuery,
-          populationQuery
-        ]);
-
-        return {
-          labor: laborResult.data || [],
-          population: populationResult.data || [],
-          laborError: laborResult.error,
-          populationError: populationResult.error
-        };
       };
 
       const currentYearLaborData = await fetchLaborForce(currentYear);
-      if (currentYearLaborData.laborError) throw currentYearLaborData.laborError;
-      if (currentYearLaborData.populationError) throw currentYearLaborData.populationError;
+      const prevYearLaborData = previousYear ? await fetchLaborForce(previousYear) : { labor: [], population: [] };
 
-      const prevYearLaborData = await fetchLaborForce(previousYear);
-      if (prevYearLaborData.laborError) throw prevYearLaborData.laborError;
-      if (prevYearLaborData.populationError) throw prevYearLaborData.populationError;
-
-      // Group population by country
-      const groupByCountry = (data) => {
+      // Group population by country for working age
+      const groupByCountry = (data: any[]) => {
         return data.reduce((acc, item) => {
           if (!acc[item.geo]) {
             acc[item.geo] = 0;
@@ -153,7 +230,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       };
 
       // Group labor force by country
-      const groupLaborByCountry = (data) => {
+      const groupLaborByCountry = (data: any[]) => {
         return data.reduce((acc, item) => {
           if (!acc[item.geo]) {
             acc[item.geo] = 0;
@@ -202,28 +279,36 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         ? ((avgCurrentLaborForceRate - avgPrevLaborForceRate) / avgPrevLaborForceRate) * 100 
         : 0;
       
-      // Calculate fertility rates for current and previous year
+      // 3. Calculate fertility rates
       const fetchFertilityRate = async (year: number) => {
-        let fertilityQuery = supabase
-          .from('fertility')
-          .select('fertility_rate, geo, geo_data!inner(un_region)')
-          .eq('year', year);
-        
-        if (selectedRegion && selectedRegion !== 'all') {
-          fertilityQuery = fertilityQuery.eq('geo_data.un_region', selectedRegion);
-        } else if (selectedRegion === 'all') {
-          // Exclude Western Asia if "all" is selected
-          fertilityQuery = fertilityQuery.not('geo_data.un_region', 'eq', 'Western Asia');
-        }
+        try {
+          let fertilityQuery = supabase
+            .from('fertility')
+            .select('fertility_rate, geo, geo_data!inner(un_region)')
+            .eq('year', year);
+          
+          if (selectedRegion && selectedRegion !== 'all') {
+            fertilityQuery = fertilityQuery.eq('geo_data.un_region', selectedRegion);
+          } else {
+            fertilityQuery = fertilityQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          }
 
-        return await fertilityQuery;
+          const { data, error } = await fertilityQuery;
+          
+          if (error) {
+            console.error(`Error fetching fertility rate for year ${year}:`, error);
+            return [];
+          }
+          
+          return data || [];
+        } catch (error) {
+          console.error(`Error in fetchFertilityRate for ${year}:`, error);
+          return [];
+        }
       };
 
-      const { data: currentFertilityData, error: currentFertErr } = await fetchFertilityRate(currentYear);
-      if (currentFertErr) throw currentFertErr;
-
-      const { data: prevFertilityData, error: prevFertErr } = await fetchFertilityRate(previousYear);
-      if (prevFertErr) throw prevFertErr;
+      const currentFertilityData = await fetchFertilityRate(currentYear);
+      const prevFertilityData = previousYear ? await fetchFertilityRate(previousYear) : [];
 
       const validCurrentFertility = currentFertilityData.filter(item => item.fertility_rate !== null);
       const validPrevFertility = prevFertilityData.filter(item => item.fertility_rate !== null);
@@ -240,75 +325,83 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         ? ((avgCurrentFertility - avgPrevFertility) / avgPrevFertility) * 100 
         : 0;
 
-      // Calculate dependency ratio
+      // 4. Calculate dependency ratio
       const fetchDependencyRatio = async (year: number) => {
-        let dependentPopQuery = supabase
-          .from('population')
-          .select('population, sex, age, geo, geo_data!inner(un_region)')
-          .eq('year', year)
-          .eq('sex', 'Total')
-          .or('age.in.(From 0 to 4 years,From 5 to 9 years,From 10 to 14 years,From 65 to 69 years,From 70 to 74 years,From 75 to 79 years,From 80 to 84 years,From 85 to 89 years,From 90 to 94 years,From 95 to 99 years,100 years and over)');
+        try {
+          let dependentPopQuery = supabase
+            .from('population')
+            .select('population, sex, age, geo, geo_data!inner(un_region)')
+            .eq('year', year)
+            .eq('sex', 'Total')
+            .or('age.in.(From 0 to 4 years,From 5 to 9 years,From 10 to 14 years,From 65 to 69 years,From 70 to 74 years,From 75 to 79 years,From 80 to 84 years,From 85 to 89 years,From 90 to 94 years,From 95 to 99 years,100 years and over)');
 
-        let workingAgePopQuery = supabase
-          .from('population')
-          .select('population, sex, age, geo, geo_data!inner(un_region)')
-          .eq('year', year)
-          .eq('sex', 'Total')
-          .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
+          let workingAgePopQuery = supabase
+            .from('population')
+            .select('population, sex, age, geo, geo_data!inner(un_region)')
+            .eq('year', year)
+            .eq('sex', 'Total')
+            .or('age.in.(From 15 to 19 years,From 20 to 24 years,From 25 to 29 years,From 30 to 34 years,From 35 to 39 years,From 40 to 44 years,From 45 to 49 years,From 50 to 54 years,From 55 to 59 years,From 60 to 64 years)');
 
-        if (selectedRegion && selectedRegion !== 'all') {
-          dependentPopQuery = dependentPopQuery.eq('geo_data.un_region', selectedRegion);
-          workingAgePopQuery = workingAgePopQuery.eq('geo_data.un_region', selectedRegion);
-        } else if (selectedRegion === 'all') {
-          dependentPopQuery = dependentPopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
-          workingAgePopQuery = workingAgePopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          if (selectedRegion && selectedRegion !== 'all') {
+            dependentPopQuery = dependentPopQuery.eq('geo_data.un_region', selectedRegion);
+            workingAgePopQuery = workingAgePopQuery.eq('geo_data.un_region', selectedRegion);
+          } else {
+            dependentPopQuery = dependentPopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+            workingAgePopQuery = workingAgePopQuery.not('geo_data.un_region', 'eq', 'Western Asia');
+          }
+
+          const [dependentResult, workingAgeResult] = await Promise.all([
+            dependentPopQuery,
+            workingAgePopQuery
+          ]);
+          
+          if (dependentResult.error) {
+            console.error(`Error fetching dependent population for year ${year}:`, dependentResult.error);
+            return { dependent: [], workingAge: [] };
+          }
+          
+          if (workingAgeResult.error) {
+            console.error(`Error fetching working age population for year ${year}:`, workingAgeResult.error);
+            return { dependent: [], workingAge: [] };
+          }
+
+          return {
+            dependent: dependentResult.data || [],
+            workingAge: workingAgeResult.data || []
+          };
+        } catch (error) {
+          console.error(`Error in fetchDependencyRatio for ${year}:`, error);
+          return { dependent: [], workingAge: [] };
         }
-
-        const [dependentResult, workingAgeResult] = await Promise.all([
-          dependentPopQuery,
-          workingAgePopQuery
-        ]);
-
-        return {
-          dependent: dependentResult.data || [],
-          workingAge: workingAgeResult.data || [],
-          dependentError: dependentResult.error,
-          workingAgeError: workingAgeResult.error
-        };
       };
 
       const currentYearDependencyData = await fetchDependencyRatio(currentYear);
-      if (currentYearDependencyData.dependentError) throw currentYearDependencyData.dependentError;
-      if (currentYearDependencyData.workingAgeError) throw currentYearDependencyData.workingAgeError;
-
-      const prevYearDependencyData = await fetchDependencyRatio(previousYear);
-      if (prevYearDependencyData.dependentError) throw prevYearDependencyData.dependentError;
-      if (prevYearDependencyData.workingAgeError) throw prevYearDependencyData.workingAgeError;
+      const prevYearDependencyData = previousYear ? await fetchDependencyRatio(previousYear) : { dependent: [], workingAge: [] };
 
       // Group dependent and working age population by country
       const groupDependentsByCountry = currentYearDependencyData.dependent.reduce((acc, item) => {
         if (!acc[item.geo]) acc[item.geo] = 0;
         acc[item.geo] += (item.population || 0);
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       const groupWorkingAgeByCountry = currentYearDependencyData.workingAge.reduce((acc, item) => {
         if (!acc[item.geo]) acc[item.geo] = 0;
         acc[item.geo] += (item.population || 0);
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       const prevGroupDependentsByCountry = prevYearDependencyData.dependent.reduce((acc, item) => {
         if (!acc[item.geo]) acc[item.geo] = 0;
         acc[item.geo] += (item.population || 0);
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       const prevGroupWorkingAgeByCountry = prevYearDependencyData.workingAge.reduce((acc, item) => {
         if (!acc[item.geo]) acc[item.geo] = 0;
         acc[item.geo] += (item.population || 0);
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       // Calculate dependency ratio for current year
       let currentDependencyRatio = 0;
@@ -344,21 +437,22 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         ? ((avgCurrentDependencyRatio - avgPrevDependencyRatio) / avgPrevDependencyRatio) * 100 
         : 0;
 
+      // Update the metric data
       setMetricData({
         populationTotal: { 
-          value: `${currentTotalPop.toFixed(1)}M`, 
+          value: currentTotalPop > 0 ? `${currentTotalPop.toFixed(1)}M` : 'No data', 
           trend: parseFloat(populationTrend.toFixed(1))
         },
         laborForceRate: { 
-          value: `${avgCurrentLaborForceRate.toFixed(1)}%`, 
+          value: avgCurrentLaborForceRate > 0 ? `${avgCurrentLaborForceRate.toFixed(1)}%` : 'No data', 
           trend: parseFloat(laborForceTrend.toFixed(1))
         },
         fertilityRate: { 
-          value: avgCurrentFertility.toFixed(2), 
+          value: avgCurrentFertility > 0 ? avgCurrentFertility.toFixed(2) : 'No data', 
           trend: parseFloat(fertilityTrend.toFixed(1))
         },
         dependencyRatio: {
-          value: `${avgCurrentDependencyRatio.toFixed(1)}%`,
+          value: avgCurrentDependencyRatio > 0 ? `${avgCurrentDependencyRatio.toFixed(1)}%` : 'No data',
           trend: parseFloat(dependencyTrend.toFixed(1))
         },
         isLoading: false
@@ -366,13 +460,20 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     } catch (error) {
       console.error('Error fetching metric data:', error);
       toast.error('Failed to load dashboard metrics');
-      setMetricData(prev => ({ ...prev, isLoading: false }));
+      setMetricData(prev => ({ 
+        ...prev, 
+        isLoading: false,
+        populationTotal: { value: 'Error', trend: 0 },
+        laborForceRate: { value: 'Error', trend: 0 },
+        fertilityRate: { value: 'Error', trend: 0 },
+        dependencyRatio: { value: 'Error', trend: 0 }
+      }));
     }
   };
 
-  const fetchChartData = async () => {
+  const fetchChartData = async (year: number | null = null) => {
     try {
-      // Fetch unique regions excluding Western Asia
+      // 1. Fetch unique regions excluding Western Asia
       const { data: regionsData, error: regionsError } = await supabase
         .from('geo_data')
         .select('un_region')
@@ -380,14 +481,19 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         .not('un_region', 'eq', 'Western Asia')
         .order('un_region', { ascending: true });
 
-      if (regionsError) throw regionsError;
+      if (regionsError) {
+        console.error('Error fetching regions:', regionsError);
+        toast.error('Failed to load regions data');
+        setChartData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
       
       // Format regions data (unique values)
       const uniqueRegions = Array.from(
         new Set(regionsData.map(item => item.un_region))
       ).filter(Boolean).map(region => ({ region: region as string }));
 
-      // Fetch countries data
+      // 2. Fetch countries data
       let countriesQuery = supabase
         .from('geo_data')
         .select('geo, un_region, latitude, longitude')
@@ -400,19 +506,25 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
       const { data: countriesData, error: countriesError } = await countriesQuery;
       
-      if (countriesError) throw countriesError;
+      if (countriesError) {
+        console.error('Error fetching countries:', countriesError);
+        toast.error('Failed to load countries data');
+        setChartData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
 
-      // Fetch years data
-      const { data: yearsData, error: yearsError } = await supabase
-        .from('population')
-        .select('year')
-        .order('year', { ascending: true });
-
-      if (yearsError) throw yearsError;
+      // 3. Fetch years data - this is the critical fix for the years dropdown
+      const availableYears = await fetchAvailableYears();
       
-      const uniqueYears = Array.from(new Set(yearsData.map(item => item.year))).sort((a, b) => a - b);
+      if (!availableYears || availableYears.length === 0) {
+        setChartData(prev => ({ ...prev, isLoading: false, years: [] }));
+        return;
+      }
+      
+      // If no year is provided, use the latest year
+      const selectedYear = year || availableYears[availableYears.length - 1];
 
-      // Fetch fertility data
+      // 4. Fetch fertility data
       let fertilityQuery = supabase
         .from('fertility')
         .select('year, fertility_rate, geo, geo_data!inner(un_region)')
@@ -426,9 +538,14 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
       const { data: fertilityData, error: fertilityError } = await fertilityQuery;
       
-      if (fertilityError) throw fertilityError;
+      if (fertilityError) {
+        console.error('Error fetching fertility data:', fertilityError);
+        toast.error('Failed to load fertility data');
+        setChartData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
 
-      // Fetch labor force data
+      // 5. Fetch labor force data
       let laborQuery = supabase
         .from('labor')
         .select('year, labour_force, sex, geo, geo_data!inner(un_region)')
@@ -442,9 +559,14 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
       const { data: laborData, error: laborError } = await laborQuery;
       
-      if (laborError) throw laborError;
+      if (laborError) {
+        console.error('Error fetching labor data:', laborError);
+        toast.error('Failed to load labor force data');
+        setChartData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
 
-      // Fetch population data for pyramid and dependency ratio
+      // 6. Fetch population data for pyramid and dependency ratio
       let populationQuery = supabase
         .from('population')
         .select('year, sex, age, population, geo, geo_data!inner(un_region)')
@@ -458,7 +580,12 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
       const { data: populationData, error: populationError } = await populationQuery;
       
-      if (populationError) throw populationError;
+      if (populationError) {
+        console.error('Error fetching population data:', populationError);
+        toast.error('Failed to load population data');
+        setChartData(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
 
       // Format fertility data
       const formattedFertilityData = fertilityData
@@ -587,7 +714,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       const popByCountryYearAgeSex: Record<string, PyramidItem> = {};
       
       populationData.forEach(item => {
-        if (item && typeof item === 'object') {
+        if (item && typeof item === 'object' && item.year === selectedYear) {
           const sex = item.sex as string;
           const age = item.age as string;
           
@@ -615,12 +742,12 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         }
       });
       
-      // Convert to array format
+      // Convert to array format for the pyramid chart
       Object.values(popByCountryYearAgeSex).forEach(item => {
         populationPyramidData.push(item);
       });
 
-      // Calculate dependency ratio
+      // Calculate dependency ratio for the map
       const dependencyRatioData: Array<{
         country: string;
         region: string;
@@ -631,58 +758,61 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       }> = [];
 
       // Group population by country, year and age group (dependent vs. working age)
-      uniqueYears.forEach(year => {
-        const dependentsByCountry: Record<string, number> = {};
-        const workingAgeByCountry: Record<string, number> = {};
-        
-        populationData.forEach(item => {
-          if (item && typeof item === 'object') {
-            const itemYear = item.year as number;
-            const sex = item.sex as string;
-            
-            if (itemYear === year && sex === 'Total') {
-              const age = item.age as string;
-              if (!age || age === 'Total') return;
-              
-              const ageNum = parseInt(age.split(' ')[1]);
+      const groupPopulationByCountry = (data: any[], ageFilter: (age: string) => boolean) => {
+        return data.reduce((acc, item) => {
+          if (item && item.year === selectedYear && item.sex === 'Total') {
+            const age = item.age as string;
+            if (ageFilter(age)) {
               const country = item.geo as string;
-              
-              // Initialize if not already done
-              if (!dependentsByCountry[country]) dependentsByCountry[country] = 0;
-              if (!workingAgeByCountry[country]) workingAgeByCountry[country] = 0;
-              
-              if ((ageNum >= 0 && ageNum < 15) || ageNum >= 65) {
-                dependentsByCountry[country] += (item.population as number || 0);
-              } else if (ageNum >= 15 && ageNum <= 64) {
-                workingAgeByCountry[country] += (item.population as number || 0);
-              }
+              if (!acc[country]) acc[country] = 0;
+              acc[country] += (item.population as number || 0);
             }
           }
-        });
-        
-        // Calculate dependency ratio for each country
-        Object.keys(dependentsByCountry).forEach(country => {
-          if (workingAgeByCountry[country] && workingAgeByCountry[country] > 0) {
-            const countryInfo = countriesData.find(c => c.geo === country) || {
-              un_region: '',
-              latitude: null,
-              longitude: null
-            };
-            
-            const ratio = (dependentsByCountry[country] / workingAgeByCountry[country]) * 100;
-            
-            dependencyRatioData.push({
-              country,
-              region: countryInfo.un_region as string,
-              dependencyRatio: ratio,
-              year,
-              latitude: countryInfo.latitude,
-              longitude: countryInfo.longitude
-            });
-          }
-        });
+          return acc;
+        }, {} as Record<string, number>);
+      };
+      
+      const dependentsByCountry = groupPopulationByCountry(
+        populationData,
+        (age) => {
+          if (age === 'Total') return false;
+          const ageNum = parseInt(age.split(' ')[1]);
+          return (ageNum >= 0 && ageNum < 15) || ageNum >= 65;
+        }
+      );
+      
+      const workingAgeByCountry = groupPopulationByCountry(
+        populationData,
+        (age) => {
+          if (age === 'Total') return false;
+          const ageNum = parseInt(age.split(' ')[1]);
+          return ageNum >= 15 && ageNum < 65;
+        }
+      );
+      
+      // Calculate dependency ratio for each country
+      Object.keys(dependentsByCountry).forEach(country => {
+        if (workingAgeByCountry[country] && workingAgeByCountry[country] > 0) {
+          const countryInfo = countriesData.find(c => c.geo === country) || {
+            un_region: '',
+            latitude: null,
+            longitude: null
+          };
+          
+          const ratio = (dependentsByCountry[country] / workingAgeByCountry[country]) * 100;
+          
+          dependencyRatioData.push({
+            country,
+            region: countryInfo.un_region as string,
+            dependencyRatio: ratio,
+            year: selectedYear,
+            latitude: countryInfo.latitude,
+            longitude: countryInfo.longitude
+          });
+        }
       });
 
+      // Update chart data
       setChartData({
         fertilityData: formattedFertilityData,
         laborForceData: laborForceRates,
@@ -690,7 +820,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         dependencyRatioData,
         regions: uniqueRegions,
         countries: countriesData as Array<{ geo: string; un_region: string }>,
-        years: uniqueYears,
+        years: availableYears,
         isLoading: false
       });
     } catch (error) {
@@ -702,18 +832,34 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
   useEffect(() => {
     setIsLoading(true);
-    fetchMetricData();
-    fetchChartData();
+    
+    // Reset states
+    setMetricData(prev => ({ ...prev, isLoading: true }));
+    setChartData(prev => ({ ...prev, isLoading: true }));
+    
+    // First fetch chart data to get available years
+    fetchChartData()
+      .then(() => {
+        // Then fetch metric data using the first year if available
+        fetchMetricData(null);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [selectedRegion]);
 
   return {
     metricData,
     chartData,
     isLoading,
-    refresh: () => {
+    refresh: (year: number | null = null) => {
       setIsLoading(true);
-      fetchMetricData();
-      fetchChartData();
+      setMetricData(prev => ({ ...prev, isLoading: true }));
+      setChartData(prev => ({ ...prev, isLoading: true }));
+      
+      fetchChartData(year)
+        .then(() => fetchMetricData(year))
+        .finally(() => setIsLoading(false));
     }
   };
 };
