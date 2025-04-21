@@ -59,8 +59,11 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
     const countries = countryData || [];
 
+    const filteredCountries = selectedRegion === 'all'
+      ? countries
+      : countries.filter(c => c.un_region === selectedRegion);
 
-
+    const filteredGeos = filteredCountries.map(c => c.geo);
 
 
 
@@ -205,7 +208,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       .eq('sex', 'Total')
       .eq('year', selectedYear);
 
-    const filteredCountries = countries.filter(c => c.un_region !== 'Western Asia');    
+    // const filteredCountries = countries.filter(c => c.un_region !== 'Western Asia');    
 
     const dependencyRatioData = filteredCountries.map(country => {
       const dep = popTotal?.filter(p => depAgeGroups.includes(p.age) && p.geo === country.geo)
@@ -286,15 +289,19 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       'From 60 to 64 years'
     ];
 
+    // const laborForceTotal = [...laborRaw, ...laborFem]
+    //   .filter(d => countries.map(c => c.geo).includes(d.geo) && d.year === selectedYear)
+    //   .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
     const laborForceTotal = [...laborRaw, ...laborFem]
-      .filter(d => countries.map(c => c.geo).includes(d.geo) && d.year === selectedYear)
+      .filter(d => filteredGeos.includes(d.geo) && d.year === selectedYear)
       .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
  
 
     const workingPop = popTotal
       ?.filter(d =>
         workingAgeGroups.includes(d.age) &&
-        (selectedRegion === 'all' || d.geo_data?.un_region === selectedRegion)
+        (selectedRegion === 'all' || d.geo_data?.un_region === selectedRegion) &&
+        filteredGeos.includes(d.geo)
       )
       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
 
@@ -313,7 +320,8 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       .eq('year', selectedYear - 1);
 
     const laborForceBefore = (laborBeforeRaw.data || [])
-      .filter(d => countries.map(c => c.geo).includes(d.geo))
+      // .filter(d => countries.map(c => c.geo).includes(d.geo))
+      .filter(d => filteredGeos.includes(d.geo))
       .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
 
     const { data: popBeforeYear } = await supabase
@@ -326,9 +334,17 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     const workingPopBefore = popBeforeYear
       ?.filter(d =>
         workingAgeGroups.includes(d.age) &&
-        countries.map(c => c.geo).includes(d.geo)
+        filteredGeos.includes(d.geo)
       )
       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
+    
+
+    // const workingPopBefore = popBeforeYear
+    //   ?.filter(d =>
+    //     workingAgeGroups.includes(d.age) &&
+    //     countries.map(c => c.geo).includes(d.geo)
+    //   )
+    //   .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
 
     const laborRatePrev = workingPopBefore > 0 ? (laborForceBefore / workingPopBefore) * 100 : 0;
     const laborTrend = laborRatePrev > 0 ? ((laborRate - laborRatePrev) / laborRatePrev) * 100 : 0;
@@ -347,7 +363,8 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       .eq('sex', 'Total')
       .eq('year', selectedYear - 1);
 
-    const dependencyRatioPrev = countries.map(country => {
+    // const dependencyRatioPrev = countries.map(country => {
+    const dependencyRatioPrev = filteredCountries.map(country => {
       const dep = dependencyPrevYear.data?.filter(p => depAgeGroups.includes(p.age) && p.geo === country.geo)
         .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
       const work = dependencyPrevYear.data?.filter(p => workAgeGroups.includes(p.age) && p.geo === country.geo)
