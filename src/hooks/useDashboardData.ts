@@ -110,8 +110,8 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     // Año final que vamos a usar
     const selectedYear = year && commonYears.includes(year) ? year : latestCommonYear;
 
-    console.log("Años comunes:", commonYears);
-    console.log("Usando año:", selectedYear);
+    // console.log("Años comunes:", commonYears);
+    // console.log("Usando año:", selectedYear);
 
 
 
@@ -154,8 +154,8 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     // // Asegúrate que el año pedido esté disponible, si no, usa el más reciente disponible
     // const selectedYear = year && availableYears.includes(year) ? year : latestLaborYear;
 
-    console.log("Años disponibles en laborRaw:", availableYears);
-    console.log("Usando año:", selectedYear);
+    // console.log("Años disponibles en laborRaw:", availableYears);
+    // console.log("Usando año:", selectedYear);
 
 
     const { data: laborFem } = await supabase
@@ -175,6 +175,31 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       };
     }).filter(Boolean);
 
+
+// ----------------------------------------------------------------------------------------------------------------------}
+
+    // Metrics Calculation (Total Population and Trends)
+    const getPop = async (yr: number) => {
+      const { data } = await supabase
+        .from('population')
+        .select('population, geo, geo_data!inner(un_region)')
+        .eq('sex', 'Total')
+        .eq('age', 'Total')
+        .eq('year', yr);
+      return data?.filter(p => selectedRegion === 'all' || p.geo_data?.un_region === selectedRegion);
+    };
+
+    const popThisYear = await getPop(selectedYear);
+    const popLastYear = await getPop(selectedYear - 1);
+
+    const sum = (arr: any[]) => arr.reduce((acc, d) => acc + (d.population || 0), 0);
+    const totalPop = sum(popThisYear);
+    const prevPop = sum(popLastYear);
+    const popTrend = prevPop > 0 ? ((totalPop - prevPop) / prevPop) * 100 : 0;
+
+
+  // ----------------------------------------------------------------------------------------------------------------
+
     // Population Pyramid
     const { data: popRaw } = await supabase
       .from('population')
@@ -183,17 +208,26 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       .not('age', 'eq', 'Total')
       .not('sex', 'eq', 'Total');
 
+    console.log(popRaw)
+
+    // Calcular total por sexo en la región o global
+    const totalMalePop = popRaw
+      ?.filter(p => p.sex === 'Males' && filteredGeos.includes(p.geo))
+      .reduce((sum, p) => sum + (p.population || 0), 0) || 1;
+
+    const totalFemalePop = popRaw
+      ?.filter(p => p.sex === 'Females' && filteredGeos.includes(p.geo))
+      .reduce((sum, p) => sum + (p.population || 0), 0) || 1;
+
     const pyramidData = popRaw?.filter(p =>
-      selectedRegion === 'all' || p.geo_data?.un_region === selectedRegion
-    ).map(p => ({
+      filteredGeos.includes(p.geo)
+      ).map(p => ({
       age: p.age,
-      male: p.sex === 'Males' ? p.population : 0,
-      female: p.sex === 'Females' ? p.population : 0,
+      male: p.sex === 'Males' ? (p.population || 0) / totalPop * 100 : 0,
+      female: p.sex === 'Females' ? (p.population || 0) / totalPop * 100 : 0,
       country: p.geo,
       year: p.year
     })) || [];
-
-
 
 // -------------------------------------------------------------------------------------------
 
@@ -232,29 +266,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
 
 // --------------------------------------------------------------------------------------------
-
-
-
-
-
-    // Metrics Calculation (Total Population and Trends)
-    const getPop = async (yr: number) => {
-      const { data } = await supabase
-        .from('population')
-        .select('population, geo, geo_data!inner(un_region)')
-        .eq('sex', 'Total')
-        .eq('age', 'Total')
-        .eq('year', yr);
-      return data?.filter(p => selectedRegion === 'all' || p.geo_data?.un_region === selectedRegion);
-    };
-
-    const popThisYear = await getPop(selectedYear);
-    const popLastYear = await getPop(selectedYear - 1);
-
-    const sum = (arr: any[]) => arr.reduce((acc, d) => acc + (d.population || 0), 0);
-    const totalPop = sum(popThisYear);
-    const prevPop = sum(popLastYear);
-    const popTrend = prevPop > 0 ? ((totalPop - prevPop) / prevPop) * 100 : 0;
 
     // Fertility rate average + trend
     const fertNow = fertilityRaw?.filter(f => f.year === selectedYear && (selectedRegion === 'all' || f.geo_data?.un_region === selectedRegion)).map(f => f.fertility_rate || 0);
@@ -305,13 +316,13 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       )
       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
 
-    console.log("Labor force total:", laborForceTotal);
-    console.log("Working-age population total:", workingPop);
+    // console.log("Labor force total:", laborForceTotal);
+    // console.log("Working-age population total:", workingPop);
       
   
     const laborRate = workingPop > 0 ? (laborForceTotal / workingPop) * 100 : 0;
 
-    console.log("Labor Rate:", laborRate.toFixed(1));
+    // console.log("Labor Rate:", laborRate.toFixed(1));
 
     const laborBeforeRaw = await supabase
       .from('labor')
@@ -398,6 +409,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       },
       isLoading: false
     });
+
 
     setChartData({
       // fertilityData,
