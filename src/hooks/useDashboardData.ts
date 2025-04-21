@@ -40,6 +40,13 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     isLoading: true
   });
 
+  const workingAgeGroups = [
+    'From 15 to 19 years','From 20 to 24 years','From 25 to 29 years',
+    'From 30 to 34 years','From 35 to 39 years','From 40 to 44 years',
+    'From 45 to 49 years','From 50 to 54 years','From 55 to 59 years',
+    'From 60 to 64 years'
+  ];
+
   const fetchData = async (year: number | null = null) => {
     setChartData(prev => ({ ...prev, isLoading: true }));
     setMetricData(prev => ({ ...prev, isLoading: true }));
@@ -113,16 +120,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     // console.log("Años comunes:", commonYears);
     // console.log("Usando año:", selectedYear);
 
-
-
-
-
-
-
-
-
-
-
     // Fertility Trend
     const { data: fertilityRaw } = await supabase
       .from('fertility')
@@ -174,6 +171,17 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         female: female?.labour_force || 0
       };
     }).filter(Boolean);
+
+    const laborPercentages = combinedLabor.map(item => {
+      const total = item.male + item.female || 1;
+      return {
+        year: item.year,
+        country: item.country,
+        male: parseFloat(((item.male / total) * 100).toFixed(1)),
+        female: parseFloat(((item.female / total) * 100).toFixed(1))
+      };
+    });
+    
 
 
 // ----------------------------------------------------------------------------------------------------------------------}
@@ -262,9 +270,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     });
     
 
-
-
-
 // --------------------------------------------------------------------------------------------
 
     // Fertility rate average + trend
@@ -293,12 +298,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     // -------------------------------
 
     // Labor rate (mejor calculado con población en edad laboral)
-    const workingAgeGroups = [
-      'From 15 to 19 years','From 20 to 24 years','From 25 to 29 years',
-      'From 30 to 34 years','From 35 to 39 years','From 40 to 44 years',
-      'From 45 to 49 years','From 50 to 54 years','From 55 to 59 years',
-      'From 60 to 64 years'
-    ];
 
     // const laborForceTotal = [...laborRaw, ...laborFem]
     //   .filter(d => countries.map(c => c.geo).includes(d.geo) && d.year === selectedYear)
@@ -361,10 +360,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     const laborTrend = laborRatePrev > 0 ? ((laborRate - laborRatePrev) / laborRatePrev) * 100 : 0;
 
 
-
-
-
-
 // -----------------------------------------------------------------------------------------
 
     // Dependency trend
@@ -414,7 +409,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     setChartData({
       // fertilityData,
       fertilityData: fertilityFormatted,
-      laborForceData: combinedLabor,
+      laborForceData: laborPercentages,
       populationPyramidData: pyramidData,
       dependencyRatioData,
       regions,
