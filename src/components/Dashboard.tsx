@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -113,48 +112,25 @@ export function Dashboard() {
             ))
           ) : (
             <>
-              <MetricCard
-                title="Total Population"
-                value={metricData.populationTotal.value}
-                icon={<Users className="h-6 w-6" />}
-                trend={{ 
-                  value: metricData.populationTotal.trend, 
-                  isPositive: metricData.populationTotal.trend >= 0 
-                }}
-              />
-              <MetricCard
-                title="Labor Force Rate"
-                value={metricData.laborForceRate.value}
-                icon={<BarChart className="h-6 w-6" />}
-                trend={{ 
-                  value: metricData.laborForceRate.trend, 
-                  isPositive: metricData.laborForceRate.trend >= 0 
-                }}
-              />
-              <MetricCard
-                title="Fertility Rate"
-                value={metricData.fertilityRate.value}
-                icon={<LineChartIcon className="h-6 w-6" />}
-                trend={{ 
-                  value: metricData.fertilityRate.trend, 
-                  isPositive: metricData.fertilityRate.trend >= 0 
-                }}
-              />
-              <MetricCard
-                title="Dependency Ratio"
-                value={metricData.dependencyRatio.value}
-                icon={<CircleUser className="h-6 w-6" />}
-                trend={{ 
-                  value: metricData.dependencyRatio.trend, 
-                  isPositive: metricData.dependencyRatio.trend < 0  // Lower dependency ratio is generally considered positive
-                }}
-              />
+              {Object.entries(metricData).map(([key, data]) => (
+                <PlanBasedContent
+                  key={key}
+                  type="metric"
+                  title={data.label}
+                  value={data.value}
+                  trend={{
+                    value: data.trend,
+                    isPositive: key === 'dependencyRatio' ? data.trend < 0 : data.trend > 0
+                  }}
+                  data={data}
+                />
+              ))}
             </>
           )}
         </div>
       </section>
       
-      {/* Demographic Analysis Section */}
+      {/* Charts Section */}
       <section className="space-y-5">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-xl font-medium text-labor-800">Demographic Analysis</h2>
@@ -178,23 +154,6 @@ export function Dashboard() {
               </SelectContent>
             </Select>
 
-            {/* <Select 
-              value={yearOptions.includes(effectiveYear.toString()) ? effectiveYear.toString() : 
-                    (yearOptions[0] === 'no-data' ? 'no-data' : yearOptions[yearOptions.length - 1].toString())}
-              onValueChange={handleYearChange}
-              disabled={yearOptions.length <= 1 && yearOptions[0] === 'no-data'}
-            > */}
-            {/* <Select
-              value={
-                selectedYear !== null && yearOptions.includes(selectedYear.toString())
-                  ? selectedYear.toString()
-                  : yearOptions.length > 0
-                    ? yearOptions[yearOptions.length - 1].toString()
-                    : 'no-data'
-              }
-              onValueChange={handleYearChange}
-              disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
-            > */}
             <Select
               value={
                 selectedYear !== null
@@ -204,7 +163,6 @@ export function Dashboard() {
               onValueChange={handleYearChange}
               disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
             >
-
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
@@ -224,143 +182,73 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Fertility Trend Chart */}
-          <Card className="bg-white rounded-lg border shadow">
-            <CardContent className="p-4">
-              <h3 className="text-lg font-medium mb-4">Fertility Trend</h3>
-              <div className="h-[350px]">
-                {chartData.isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader className="h-8 w-8 animate-spin text-labor-500" />
-                  </div>
-                ) : chartData.fertilityData.length > 0 ? (
-                  <FertilityTrendChart 
-                    data={chartData.fertilityData} 
-                    selectedCountry={selectedCountry}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">No fertility data available for the selected filters.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PlanBasedContent
+            type="chart"
+            title="Fertility Trend"
+            data={chartData.fertilityData}
+            chartComponent={
+              <FertilityTrendChart 
+                data={chartData.fertilityData} 
+                selectedCountry={selectedCountry}
+              />
+            }
+          />
 
-          {/* Dependency Ratio Map */}
-          <Card className="bg-white rounded-lg border shadow">
-            <CardContent className="p-4">
-              <h3 className="text-lg font-medium mb-4">Dependency Ratio by Country</h3>
-              <div className="h-[350px]">
-                {chartData.isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader className="h-8 w-8 animate-spin text-labor-500" />
-                  </div>
-                ) : chartData.dependencyRatioData.length > 0 ? (
-                  
-                  // <div className="p-4 space-y-4">
-                  //   <h4 className="text-sm font-medium text-labor-800">Top 3 Countries by Dependency Ratio</h4>
-                  //   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  //     {[...chartData.dependencyRatioData]
-                  //       .filter(d => d.year === effectiveYear)
-                  //       .sort((a, b) => b.dependencyRatio - a.dependencyRatio)
-                  //       .slice(0, 3)
-                  //       .map((item) => (
-                  //         <Card key={item.country} className="bg-labor-50 shadow-sm border">
-                  //           <CardContent className="p-3">
-                  //             <div className="font-semibold">{item.country}</div>
-                  //             <div className="text-sm text-labor-600">{item.dependencyRatio.toFixed(1)}%</div>
-                  //           </CardContent>
-                  //         </Card>
-                  //       ))}
-                  //   </div>
-
-                    <div className="p-4 space-y-4">
-                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-600 space-y-2">
-                        <Map className="h-10 w-10 text-labor-500" />
-                        <p className="text-sm">Click below to view an interactive map with dependency ratios by country.</p>
-                        <DependencyRatioMapModal
-                          data={chartData.dependencyRatioData}
-                          year={effectiveYear}
-                        />
-                      </div>
-                      </div>
-
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <Map className="h-8 w-8 mx-auto mb-2 text-labor-400" />
-                      <p className="text-gray-500">No dependency ratio data available.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PlanBasedContent
+            type="chart"
+            title="Dependency Ratio by Country"
+            data={chartData.dependencyRatioData}
+            chartComponent={
+              <DependencyRatioMap 
+                data={chartData.dependencyRatioData}
+                year={effectiveYear}
+              />
+            }
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Population Pyramid */}
-          <Card className="bg-white rounded-lg border shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">Population Pyramid</h3>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <span className="text-sm text-labor-500 cursor-help">?</span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">
-                        Male population shown as negative values for visualization purposes. 
-                        Chart shows population distribution by age groups and gender.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <div className="h-[450px]">
-                {chartData.isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader className="h-8 w-8 animate-spin text-labor-500" />
-                  </div>
-                ) : chartData.populationPyramidData.length > 0 ? (
-                  <PopulationPyramidChart
-                    data={chartData.populationPyramidData}
-                    selectedCountry={selectedCountry}
-                    year={effectiveYear}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">No population data available for the selected filters.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PlanBasedContent
+            type="chart"
+            title="Population Pyramid"
+            data={chartData.populationPyramidData}
+            chartComponent={
+              <PopulationPyramidChart
+                data={chartData.populationPyramidData}
+                selectedCountry={selectedCountry}
+                year={effectiveYear}
+              />
+            }
+          />
 
-          {/* Labor Force by Gender */}
-          <Card className="bg-white rounded-lg border shadow">
-            <CardContent className="p-4">
-              <h3 className="text-lg font-medium mb-4">Labor Force by Gender</h3>
-              <div className="h-[450px]">
-                {chartData.isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader className="h-8 w-8 animate-spin text-labor-500" />
-                  </div>
-                ) : chartData.laborForceData.length > 0 ? (
-                  <LaborForceByGenderChart 
-                    data={chartData.laborForceData} 
-                    selectedCountry={selectedCountry}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500">No labor force data available for the selected filters.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <PlanBasedContent
+            type="chart"
+            title="Labor Force by Gender"
+            data={chartData.laborForceData}
+            chartComponent={
+              <LaborForceByGenderChart 
+                data={chartData.laborForceData} 
+                selectedCountry={selectedCountry}
+              />
+            }
+          />
+        </div>
+
+        {/* Detailed Reports Section (Gold Plan Only) */}
+        <div className="mt-8">
+          <PlanBasedContent
+            type="report"
+            title="Custom Detailed Report"
+            data={null}
+            chartComponent={
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-semibold mb-4">Detailed Analysis Report</h3>
+                  {/* Add your detailed report content here */}
+                </CardContent>
+              </Card>
+            }
+          />
         </div>
       </section>
     </div>

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 
 const Auth = () => {
@@ -15,6 +16,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [subscriptionPlan, setSubscriptionPlan] = useState('free');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -29,7 +31,8 @@ const Auth = () => {
           options: {
             data: {
               first_name: firstName,
-              last_name: lastName
+              last_name: lastName,
+              subscription_plan: subscriptionPlan
             }
           }
         });
@@ -90,6 +93,28 @@ const Auth = () => {
                     onChange={(e) => setLastName(e.target.value)} 
                     required={isSignUp}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Subscription Plan</Label>
+                  <RadioGroup
+                    value={subscriptionPlan}
+                    onValueChange={setSubscriptionPlan}
+                    className="flex flex-col space-y-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="free" id="free" />
+                      <Label htmlFor="free">Free - Basic data and percentages</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="silver" id="silver" />
+                      <Label htmlFor="silver">Silver - Includes interactive charts</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="gold" id="gold" />
+                      <Label htmlFor="gold">Gold - Charts + Custom detailed reports</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </>
             )}
