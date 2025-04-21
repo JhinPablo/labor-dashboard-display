@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -26,6 +27,7 @@ import useDashboardData from '@/hooks/useDashboardData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DependencyRatioMapModal } from './DependencyRatioMapModal';
+import PlanBasedContent from './PlanBasedContent';
 
 export function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
@@ -116,11 +118,11 @@ export function Dashboard() {
                 <PlanBasedContent
                   key={key}
                   type="metric"
-                  title={data.label}
-                  value={data.value}
+                  title={data.label || key}
+                  value={data.value || 0}
                   trend={{
-                    value: data.trend,
-                    isPositive: key === 'dependencyRatio' ? data.trend < 0 : data.trend > 0
+                    value: data.trend || 0,
+                    isPositive: key === 'dependencyRatio' ? (data.trend || 0) < 0 : (data.trend || 0) > 0
                   }}
                   data={data}
                 />
