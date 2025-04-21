@@ -22,23 +22,15 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, trend }) =>
         <div className="text-2xl font-semibold text-gray-800">
           {typeof value === 'object' ? JSON.stringify(value) : value}
         </div>
-        {/* {trend && (
-          <div className={`text-sm ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            {trend.isPositive ? '▲' : '▼'} {Math.abs(trend.value).toFixed(1)}%
-          </div> */}
-          {trend && (
+        {trend && (
           <div className="text-sm flex items-center gap-1">
-            {(() => {
-              const isDependency = title.toLowerCase().includes('dependency');
-              const isGood = isDependency ? trend.value < 0 : trend.isPositive;
-              const arrow = trend.value === 0 ? '' : (trend.value > 0 ? '▲' : '▼');
-              const color = isGood ? 'text-green-600' : 'text-red-600';
-              return (
-                <span className={color}>
-                  {arrow} {Math.abs(trend.value).toFixed(1)}%
-                </span>
-              );
-            })()}
+            <span className={
+              (title.toLowerCase().includes('dependency') ? trend.value < 0 : trend.value > 0)
+                ? 'text-green-600' : 'text-red-600'
+            }>
+              {trend.value > 0 ? '▲' : trend.value < 0 ? '▼' : ''} {Math.abs(trend.value).toFixed(1)}%
+            </span>
+            <span className="text-gray-500">vs last month</span>
           </div>
         )}
       </CardContent>
