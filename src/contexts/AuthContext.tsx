@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -9,6 +8,7 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  userSubscription: 'free' | 'silver' | 'gold' | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [userSubscription, setUserSubscription] = useState<'free' | 'silver' | 'gold' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -23,21 +24,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log('Auth state changed:', event, currentSession?.user?.id);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        setIsLoading(false);
+        
+        // Get user subscription plan if we have a user
+        if (currentSession?.user) {
+          setTimeout(() => {
+            fetchUserSubscription(currentSession.user.id);
+          }, 0);
+        } else {
+          setUserSubscription(null);
+          setIsLoading(false);
+        }
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log('Got existing session:', currentSession?.user?.id);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      setIsLoading(false);
+      
+      if (currentSession?.user) {
+        fetchUserSubscription(currentSession.user.id);
+      } else {
+        setIsLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserSubscription = async (userId: string) => {
+    try {
+      // First try to get it from user metadata
+      if (user?.user_metadata?.subscription_plan) {
+        const plan = user.user_metadata.subscription_plan;
+        setUserSubscription(plan as 'free' | 'silver' | 'gold');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Otherwise fetch from profiles table
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('subscription_plan')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      
+      setUserSubscription(data?.subscription_plan as 'free' | 'silver' | 'gold' || 'free');
+    } catch (error) {
+      console.error('Error fetching user subscription:', error);
+      setUserSubscription('free'); // Default to free if there's an error
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signOut = async () => {
     try {
@@ -57,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, userSubscription, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

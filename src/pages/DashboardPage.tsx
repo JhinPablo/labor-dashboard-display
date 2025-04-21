@@ -1,15 +1,28 @@
 
 import React from 'react';
-import { Dashboard } from '@/components/Dashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import DashboardLayout from '@/components/Dashboard/DashboardLayout';
 
 const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  // If loading, show a loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-8"></div>
+          <div className="h-64 bg-gray-200 rounded mb-4"></div>
+        </div>
+      </div>
+    );
+  }
 
   // If not authenticated, show limited version with upgrade prompt
   if (!user) {
@@ -44,17 +57,7 @@ const DashboardPage = () => {
     );
   }
 
-  return (
-    <div className="container mx-auto px-4">
-      <div className="py-4">
-        <h1 className="text-2xl font-bold text-labor-900">Labor Market Dashboard</h1>
-        <p className="text-labor-500 mt-1">
-          Track employment trends and forecast market changes
-        </p>
-      </div>
-      <Dashboard />
-    </div>
-  );
+  return <DashboardLayout />;
 };
 
 export default DashboardPage;
