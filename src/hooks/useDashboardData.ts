@@ -40,14 +40,6 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     isLoading: true
   });
 
-  const workingAgeGroups = [
-      'From 15 to 19 years','From 20 to 24 years','From 25 to 29 years',
-      'From 30 to 34 years','From 35 to 39 years','From 40 to 44 years',
-      'From 45 to 49 years','From 50 to 54 years','From 55 to 59 years',
-      'From 60 to 64 years'
-    ];
-  
-
   const fetchData = async (year: number | null = null) => {
     setChartData(prev => ({ ...prev, isLoading: true }));
     setMetricData(prev => ({ ...prev, isLoading: true }));
@@ -67,19 +59,66 @@ const useDashboardData = (selectedRegion: string = 'all') => {
 
     const countries = countryData || [];
 
-    const filteredCountries = selectedRegion === 'all'
-      ? countries.map(c => c.geo)
-      : countries.filter(c => c.un_region === selectedRegion).map(c => c.geo);
 
-    const { data: yearData } = await supabase
-      .from('population')
-      .select('year')
-      .eq('sex', 'Total')
-      .eq('age', 'Total');
 
-    const years = [...new Set(yearData?.map(p => p.year))].sort((a, b) => a - b);
-    const latestYear = years[years.length - 1];
-    // const selectedYear = year || latestYear;
+
+
+
+    // const { data: yearData } = await supabase
+    //   .from('population')
+    //   .select('year')
+    //   .eq('sex', 'Total')
+    //   .eq('age', 'Total');
+
+    // const years = [...new Set(yearData?.map(p => p.year))].sort((a, b) => a - b);
+    // const latestYear = years[years.length - 1];
+    // // const selectedYear = year || latestYear;
+
+
+    // Obtener años de population
+    const { data: popYearData } = await supabase
+    .from('population')
+    .select('year')
+    .eq('sex', 'Total')
+    .eq('age', 'Total');
+
+    const popYears = [...new Set(popYearData?.map(p => p.year))];
+
+    // Obtener años de fertility
+    const { data: fertilityYearData } = await supabase
+    .from('fertility')
+    .select('year');
+
+    const fertilityYears = [...new Set(fertilityYearData?.map(f => f.year))];
+
+    // Obtener años de labor (males ya lo estás trayendo después, usamos eso)
+    const { data: laborRaw } = await supabase
+    .from('labor')
+    .select('year, sex, geo, labour_force, geo_data!inner(un_region)')
+    .eq('sex', 'Males')
+    .order('year', { ascending: true });
+
+    const laborYears = [...new Set(laborRaw.map(d => d.year))];
+
+    // Filtrar el conjunto de años comunes
+    const commonYears = popYears.filter(y => laborYears.includes(y) && fertilityYears.includes(y));
+    const latestCommonYear = Math.max(...commonYears);
+
+    // Año final que vamos a usar
+    const selectedYear = year && commonYears.includes(year) ? year : latestCommonYear;
+
+    console.log("Años comunes:", commonYears);
+    console.log("Usando año:", selectedYear);
+
+
+
+
+
+
+
+
+
+
 
     // Fertility Trend
     const { data: fertilityRaw } = await supabase
@@ -98,19 +137,23 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       country: item.geo
     }));
 
-    // Labor Force by Gender
-    const { data: laborRaw } = await supabase
-      .from('labor')
-      .select('year, sex, geo, labour_force, geo_data!inner(un_region)')
-      .eq('sex', 'Males')
-      .order('year', { ascending: true });
+    // // Labor Force by Gender
+    // const { data: laborRaw } = await supabase
+    //   .from('labor')
+    //   .select('year, sex, geo, labour_force, geo_data!inner(un_region)')
+    //   .eq('sex', 'Males')
+    //   .order('year', { ascending: true });
 
-      const availableYears = [...new Set(laborRaw.map(d => d.year))].sort((a, b) => a - b);
-      const latestLaborYear = availableYears[availableYears.length - 1];
-      const selectedYear = year && year <= latestLaborYear ? year : latestLaborYear;
+    // Después de obtener laborRaw:
+    const availableYears = [...new Set(laborRaw.map(d => d.year))].sort((a, b) => a - b);
+    const latestLaborYear = availableYears[availableYears.length - 1];
 
-      // console.log("LaborRaw (years)", [...new Set(laborRaw.map(d => d.year))]);
-      // console.log("Selected year:", selectedYear);
+    // // Asegúrate que el año pedido esté disponible, si no, usa el más reciente disponible
+    // const selectedYear = year && availableYears.includes(year) ? year : latestLaborYear;
+
+    console.log("Años disponibles en laborRaw:", availableYears);
+    console.log("Usando año:", selectedYear);
+
 
     const { data: laborFem } = await supabase
       .from('labor')
@@ -129,109 +172,13 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       };
     }).filter(Boolean);
 
+    // Population Pyramid
     const { data: popRaw } = await supabase
       .from('population')
       .select('year, sex, age, geo, population, geo_data!inner(un_region)')
+      .eq('year', selectedYear)
       .not('age', 'eq', 'Total')
       .not('sex', 'eq', 'Total');
-
-
-    // const yearsAvailable = [...new Set(laborRaw.map(d => d.year))].sort((a, b) => a - b);
-    // const laborByGenderRate = yearsAvailable.map(year => {
-    //     const countriesInScope = filteredCountries;
-  
-    //     // Suma de fuerza laboral por género
-    //     const totalMaleLabor = laborRaw
-    //       .filter(d => d.year === year && countriesInScope.includes(d.geo))
-    //       .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
-        
-    //     const laborFiltered = laborRaw
-    //       .filter(d => d.year === year && countriesInScope.includes(d.geo));
-
-    //     console.log("Male labor records:", laborFiltered.length);
-    //     console.log("Countries in filtered labor data:", [...new Set(laborFiltered.map(d => d.geo))]);
-
-    //     const totalFemaleLabor = laborFem
-    //       .filter(d => d.year === year && countriesInScope.includes(d.geo))
-    //       .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
-  
-    //     // Suma de población por género en edad laboral
-    //     const malePop = popRaw
-    //       ?.filter(d =>
-    //         d.sex === 'Males' &&
-    //         d.year === year &&
-    //         workingAgeGroups.includes(d.age) &&
-    //         countriesInScope.includes(d.geo)
-    //       )
-    //       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
-  
-    //     const femalePop = popRaw
-    //       ?.filter(d =>
-    //         d.sex === 'Females' &&
-    //         d.year === year &&
-    //         workingAgeGroups.includes(d.age) &&
-    //         countriesInScope.includes(d.geo)
-    //       )
-    //       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
-
-    //     console.log("Year:", year);
-    //     console.log("Total male labor:", totalMaleLabor);
-    //     console.log("Male population:", malePop);
-    //     console.log("Rate:", malePop > 0 ? (totalMaleLabor / malePop) * 100 : null);
-
-  
-    //     return {
-    //       year,
-    //       male: malePop > 0 ? (totalMaleLabor / malePop) * 100 : null,
-    //       female: femalePop > 0 ? (totalFemaleLabor / femalePop) * 100 : null
-    //     };
-    //   });
-
-    const yearsAvailable = [...new Set(laborRaw.map(d => d.year))].sort((a, b) => a - b);
-
-    const laborByGenderRate = yearsAvailable.map(year => {
-      // LFR promedio por país masculino
-      const maleLaborRates = filteredCountries.map(geo => {
-        const labor = laborRaw.find(d => d.geo === geo && d.year === year)?.labour_force ?? 0;
-        const pop = popRaw
-          ?.filter(d =>
-            d.geo === geo &&
-            d.sex === 'Males' &&
-            d.year === year &&
-            workingAgeGroups.includes(d.age)
-          )
-          .reduce((sum, d) => sum + (d.population || 0), 0) ?? 0;
-        return pop > 0 ? (labor * 1000 / pop) * 100 : null;
-      }).filter(rate => rate !== null);
-
-      const maleAvg = maleLaborRates.length
-        ? maleLaborRates.reduce((a, b) => a + b, 0) / maleLaborRates.length
-        : null;
-
-      // LFR promedio por país femenino
-      const femaleLaborRates = filteredCountries.map(geo => {
-        const labor = laborFem.find(d => d.geo === geo && d.year === year)?.labour_force ?? 0;
-        const pop = popRaw
-          ?.filter(d =>
-            d.geo === geo &&
-            d.sex === 'Females' &&
-            d.year === year &&
-            workingAgeGroups.includes(d.age)
-          )
-          .reduce((sum, d) => sum + (d.population || 0), 0) ?? 0;
-        return pop > 0 ? (labor * 1000 / pop) * 100 : null;
-      }).filter(rate => rate !== null);
-
-      const femaleAvg = femaleLaborRates.length
-        ? femaleLaborRates.reduce((a, b) => a + b, 0) / femaleLaborRates.length
-        : null;
-
-      return {
-        year,
-        male: maleAvg,
-        female: femaleAvg
-      };
-    });
 
     const pyramidData = popRaw?.filter(p =>
       selectedRegion === 'all' || p.geo_data?.un_region === selectedRegion
@@ -243,6 +190,10 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       year: p.year
     })) || [];
 
+
+
+// -------------------------------------------------------------------------------------------
+
     // Dependency Ratio
     const depAgeGroups = ['From 0 to 4 years','From 5 to 9 years','From 10 to 14 years','From 65 to 69 years','From 70 to 74 years','From 75 to 79 years','From 80 to 84 years','From 85 to 89 years','From 90 to 94 years','From 95 to 99 years','100 years and over'];
     const workAgeGroups = ['From 15 to 19 years','From 20 to 24 years','From 25 to 29 years','From 30 to 34 years','From 35 to 39 years','From 40 to 44 years','From 45 to 49 years','From 50 to 54 years','From 55 to 59 years','From 60 to 64 years'];
@@ -250,13 +201,13 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     const { data: popTotal } = await supabase
       .from('population')
       .select('geo, age, population, year, geo_data!inner(un_region, latitude, longitude)')
+      .neq('geo_data.un_region', 'Western Asia') 
       .eq('sex', 'Total')
       .eq('year', selectedYear);
 
-    // console.log("Sample pop ages:", [...new Set(popTotal.map(p => p.age))].slice(0, 10));
+    const filteredCountries = countries.filter(c => c.un_region !== 'Western Asia');    
 
-
-    const dependencyRatioData = countries.map(country => {
+    const dependencyRatioData = filteredCountries.map(country => {
       const dep = popTotal?.filter(p => depAgeGroups.includes(p.age) && p.geo === country.geo)
         .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
       const work = popTotal?.filter(p => workAgeGroups.includes(p.age) && p.geo === country.geo)
@@ -272,6 +223,16 @@ const useDashboardData = (selectedRegion: string = 'all') => {
         longitude: country.longitude
       };
     });
+    
+
+
+
+
+// --------------------------------------------------------------------------------------------
+
+
+
+
 
     // Metrics Calculation (Total Population and Trends)
     const getPop = async (yr: number) => {
@@ -299,65 +260,85 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     const fertAvgPrev = fertPrev?.length ? fertPrev.reduce((a, b) => a + b, 0) / fertPrev.length : 0;
     const fertTrend = fertAvgPrev > 0 ? ((fertAvgNow - fertAvgPrev) / fertAvgPrev) * 100 : 0;
 
+    // -----------------------------------------------------------------------------------------------------------------------------------
     // // Labor rate (reuse laborRaw + fem)
-    const laborByGeo = (arr: any[], sex: string) => {
-      return arr?.filter(d => d.sex === sex && (selectedRegion === 'all' || d.geo_data?.un_region === selectedRegion)).map(d => d.labour_force || 0);
-    };
+    // const laborByGeo = (arr: any[], sex: string) => {
+    //   return arr?.filter(d => d.sex === sex && (selectedRegion === 'all' || d.geo_data?.un_region === selectedRegion)).map(d => d.labour_force || 0);
+    // };
     // const laborNow = [...laborByGeo(laborRaw, 'Males'), ...laborByGeo(laborFem, 'Females')];
     // const avgLabor = laborNow.length ? laborNow.reduce((a, b) => a + b, 0) / laborNow.length : 0;
 
-    // Total labor force (miles → personas)
-    const laborForceTotal = [...laborRaw, ...laborFem]
-      .filter(d => filteredCountries.includes(d.geo) && d.year === selectedYear)
-      .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
+    // const laborBeforeRaw = await supabase
+    //   .from('labor')
+    //   .select('geo, sex, labour_force, geo_data!inner(un_region)')
+    //   .eq('year', selectedYear - 1);
 
-    // Total population 15–64
+    // const laborBefore = [...laborByGeo(laborBeforeRaw.data || [], 'Males'), ...laborByGeo(laborBeforeRaw.data || [], 'Females')];
+    // const avgLaborPrev = laborBefore.length ? laborBefore.reduce((a, b) => a + b, 0) / laborBefore.length : 0;
+    // const laborTrend = avgLaborPrev > 0 ? ((avgLabor - avgLaborPrev) / avgLaborPrev) * 100 : 0;
+    // -------------------------------
+
+    // Labor rate (mejor calculado con población en edad laboral)
+    const workingAgeGroups = [
+      'From 15 to 19 years','From 20 to 24 years','From 25 to 29 years',
+      'From 30 to 34 years','From 35 to 39 years','From 40 to 44 years',
+      'From 45 to 49 years','From 50 to 54 years','From 55 to 59 years',
+      'From 60 to 64 years'
+    ];
+
+    const laborForceTotal = [...laborRaw, ...laborFem]
+      .filter(d => countries.map(c => c.geo).includes(d.geo) && d.year === selectedYear)
+      .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
+ 
+
     const workingPop = popTotal
       ?.filter(d =>
-        // d.sex === 'Total' &&
         workingAgeGroups.includes(d.age) &&
-        filteredCountries.includes(d.geo)
+        (selectedRegion === 'all' || d.geo_data?.un_region === selectedRegion)
       )
       .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
 
-      // console.log("Filtered countries:", filteredCountries);
-      // console.log("Labor force total (personas):", laborForceTotal);
-      // console.log("Working-age population total:", workingPop);
-
+    console.log("Labor force total:", laborForceTotal);
+    console.log("Working-age population total:", workingPop);
+      
+  
     const laborRate = workingPop > 0 ? (laborForceTotal / workingPop) * 100 : 0;
 
+    console.log("Labor Rate:", laborRate.toFixed(1));
 
     const laborBeforeRaw = await supabase
       .from('labor')
       .select('geo, sex, labour_force, geo_data!inner(un_region)')
+      // .neq('geo_data.un_region', 'Western Asia')
       .eq('year', selectedYear - 1);
 
-    const laborBefore = [...laborByGeo(laborBeforeRaw.data || [], 'Males'), ...laborByGeo(laborBeforeRaw.data || [], 'Females')];
-    // const avgLaborPrev = laborBefore.length ? laborBefore.reduce((a, b) => a + b, 0) / laborBefore.length : 0;
-    // const laborTrend = avgLaborPrev > 0 ? ((avgLabor - avgLaborPrev) / avgLaborPrev) * 100 : 0;
-    // Labor force total en el año anterior
     const laborForceBefore = (laborBeforeRaw.data || [])
-    .filter(d => filteredCountries.includes(d.geo))
-    .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
+      .filter(d => countries.map(c => c.geo).includes(d.geo))
+      .reduce((sum, d) => sum + (d.labour_force || 0) * 1000, 0);
 
-    // Población 15–64 en el año anterior
-    const popBeforeYear = await supabase
-    .from('population')
-    .select('geo, age, population')
-    .eq('sex', 'Total')
-    .eq('year', selectedYear - 1);
+    const { data: popBeforeYear } = await supabase
+      .from('population')
+      .select('geo, age, population, geo_data!inner(un_region)')
+      // .neq('geo_data.un_region', 'Western Asia')
+      .eq('sex', 'Total')
+      .eq('year', selectedYear - 1);
 
-    const workingPopBefore = popBeforeYear.data
-    ?.filter(d =>
-      workingAgeGroups.includes(d.age) &&
-      filteredCountries.includes(d.geo)
-    )
-    .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
+    const workingPopBefore = popBeforeYear
+      ?.filter(d =>
+        workingAgeGroups.includes(d.age) &&
+        countries.map(c => c.geo).includes(d.geo)
+      )
+      .reduce((sum, d) => sum + (d.population || 0), 0) || 0;
 
     const laborRatePrev = workingPopBefore > 0 ? (laborForceBefore / workingPopBefore) * 100 : 0;
     const laborTrend = laborRatePrev > 0 ? ((laborRate - laborRatePrev) / laborRatePrev) * 100 : 0;
 
 
+
+
+
+
+// -----------------------------------------------------------------------------------------
 
     // Dependency trend
     const dependencyPrevYear = await supabase
@@ -389,7 +370,7 @@ const useDashboardData = (selectedRegion: string = 'all') => {
       laborForceRate: {
         value: `${laborRate.toFixed(1)}%`,
         trend: parseFloat(laborTrend.toFixed(1))
-      },
+      },      
       fertilityRate: {
         value: fertAvgNow.toFixed(2),
         trend: parseFloat(fertTrend.toFixed(1))
@@ -404,13 +385,12 @@ const useDashboardData = (selectedRegion: string = 'all') => {
     setChartData({
       // fertilityData,
       fertilityData: fertilityFormatted,
-      // laborForceData: combinedLabor,
-      laborForceData: laborByGenderRate,
+      laborForceData: combinedLabor,
       populationPyramidData: pyramidData,
       dependencyRatioData,
       regions,
       countries,
-      years,
+      years: commonYears.sort((a, b) => a - b),
       isLoading: false
     });
   };
