@@ -38,7 +38,6 @@ export function Dashboard() {
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region);
     setSelectedCountry('all'); // Reset country filter when region changes
-    // setSelectedYear(null); // Reset year filter when region changes
   };
 
   const handleCountryChange = (country: string) => {
@@ -114,19 +113,33 @@ export function Dashboard() {
             ))
           ) : (
             <>
-              {Object.entries(metricData).map(([key, data]) => (
-                <PlanBasedContent
-                  key={key}
-                  type="metric"
-                  title={data.label || key}
-                  value={data.value || 0}
-                  trend={{
-                    value: data.trend || 0,
-                    isPositive: key === 'dependencyRatio' ? (data.trend || 0) < 0 : (data.trend || 0) > 0
-                  }}
-                  data={data}
-                />
-              ))}
+              {Object.entries(metricData).map(([key, data]) => {
+                // Skip the isLoading property
+                if (key === 'isLoading') return null;
+                
+                // Check if data is a valid metric object with required properties
+                if (!data || typeof data !== 'object') return null;
+                
+                // Safely access properties with nullish coalescing
+                const label = data.label ?? key;
+                const value = data.value ?? '0';
+                const trend = data.trend ?? 0;
+                const isPositive = key === 'dependencyRatio' ? trend < 0 : trend > 0;
+                
+                return (
+                  <PlanBasedContent
+                    key={key}
+                    type="metric"
+                    title={label}
+                    value={value}
+                    trend={{
+                      value: trend,
+                      isPositive: isPositive
+                    }}
+                    data={data}
+                  />
+                );
+              })}
             </>
           )}
         </div>

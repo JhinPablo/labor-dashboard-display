@@ -4,12 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import MetricCard from './MetricCard';
-import {
-  FertilityTrendChart,
-  PopulationPyramidChart,
-  DependencyRatioMap,
-  LaborForceByGenderChart
-} from './DashboardCharts';
 import { Lock } from 'lucide-react';
 
 interface PlanBasedContentProps {
