@@ -120,10 +120,15 @@ export function Dashboard() {
                 // Check if data is a valid metric object with required properties
                 if (!data || typeof data !== 'object') return null;
                 
-                // Safely access properties with nullish coalescing
-                const label = data.label ?? key;
-                const value = data.value ?? '0';
-                const trend = data.trend ?? 0;
+                // Safe access to properties with type guard
+                const metric = data as { label: string; value: string; trend: number } | boolean;
+                
+                // Skip non-object metrics
+                if (typeof metric === 'boolean') return null;
+                
+                const label = 'label' in metric ? metric.label : key;
+                const value = 'value' in metric ? metric.value : '0';
+                const trend = 'trend' in metric ? metric.trend : 0;
                 const isPositive = key === 'dependencyRatio' ? trend < 0 : trend > 0;
                 
                 return (

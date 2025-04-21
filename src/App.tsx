@@ -1,12 +1,14 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import { Dashboard } from './components/Dashboard';
 import SubscriptionPlans from "./components/SubscriptionPlans";
 import Analytics from "./pages/Analytics";
 import PredictionTab from "./components/PredictionTab";
-import Auth from "./pages/Auth"; // Import Auth component
+import Auth from "./pages/Auth";
 import { Toaster } from "sonner";
+import Home from "./pages/Home";
+import DashboardPage from "./pages/DashboardPage";
+import { useAuth } from "./contexts/AuthContext";
 
 function App() {
   return (
@@ -15,11 +17,12 @@ function App() {
         <Navbar />
         <main className="flex-grow pt-16">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/subscriptions" element={<SubscriptionPlans />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/predictions" element={<PredictionTab />} />
-            <Route path="/auth" element={<Auth />} /> {/* Add Auth route */}
+            <Route path="/auth" element={<Auth />} />
           </Routes>
         </main>
         <Toaster position="top-right" />

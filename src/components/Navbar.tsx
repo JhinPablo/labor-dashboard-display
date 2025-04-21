@@ -1,39 +1,50 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { BarChart2, FileText, Home, Activity } from 'lucide-react';
+import { BarChart2, FileText, Home, Activity, LineChart } from 'lucide-react';
 import AuthNav from './AuthNav';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const location = useLocation();
+  const { user } = useAuth();
 
   const navItems = [
     { 
-      name: 'Dashboard', 
+      name: 'Home', 
       path: '/', 
-      icon: <Home className="h-4 w-4 mr-2" /> 
+      icon: <Home className="h-4 w-4 mr-2" />,
+      showAlways: true
     },
-    // { 
-    //   name: 'Reports', 
-    //   path: '/reports', 
-    //   icon: <FileText className="h-4 w-4 mr-2" /> 
-    // },
-    // { 
-    //   name: 'Analytics', 
-    //   path: '/analytics', 
-    //   icon: <BarChart2 className="h-4 w-4 mr-2" /> 
-    // },
     { 
-      name: 'Reports',  // renombrado aquí
-      path: '/analytics',  // conservamos la ruta original
-      icon: <BarChart2 className="h-4 w-4 mr-2" /> 
+      name: 'Dashboard', 
+      path: '/dashboard', 
+      icon: <LineChart className="h-4 w-4 mr-2" />,
+      showAlways: false
+    },
+    { 
+      name: 'Reports', 
+      path: '/analytics', 
+      icon: <BarChart2 className="h-4 w-4 mr-2" />,
+      showAlways: true
     },    
     { 
       name: 'Predictions', 
       path: '/predictions', 
-      icon: <Activity className="h-4 w-4 mr-2" /> 
+      icon: <Activity className="h-4 w-4 mr-2" />,
+      showAlways: false
+    },
+    { 
+      name: 'Subscriptions', 
+      path: '/subscriptions', 
+      icon: <FileText className="h-4 w-4 mr-2" />,
+      showAlways: true
     }
   ];
+
+  // Filter nav items based on authentication
+  const filteredNavItems = navItems.filter(item => item.showAlways || user);
 
   return (
     <header className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-md border-b border-labor-100">
@@ -44,7 +55,7 @@ const Navbar = () => {
           </Link>
           
           <nav className="hidden md:flex space-x-1">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
