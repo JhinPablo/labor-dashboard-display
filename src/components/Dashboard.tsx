@@ -117,31 +117,29 @@ export function Dashboard() {
                 // Skip the isLoading property
                 if (key === 'isLoading') return null;
                 
-                // Check if data is a valid metric object with required properties
-                if (!data || typeof data !== 'object') return null;
+                // Type guard to ensure we have a valid metric object
+                if (!data || typeof data !== 'object' || data === null || typeof data === 'boolean') {
+                  return null;
+                }
                 
-                // Safe access to properties with type guard
-                const metric = data as { label: string; value: string; trend: number } | boolean;
+                // Safe access to properties with proper type assertions
+                const metricData = data as { label: string; value: string; trend: number };
                 
-                // Skip non-object metrics
-                if (typeof metric === 'boolean') return null;
-                
-                const label = 'label' in metric ? metric.label : key;
-                const value = 'value' in metric ? metric.value : '0';
-                const trend = 'trend' in metric ? metric.trend : 0;
-                const isPositive = key === 'dependencyRatio' ? trend < 0 : trend > 0;
+                if (!('label' in metricData) || !('value' in metricData) || !('trend' in metricData)) {
+                  return null;
+                }
                 
                 return (
                   <PlanBasedContent
                     key={key}
                     type="metric"
-                    title={label}
-                    value={value}
+                    title={metricData.label}
+                    value={metricData.value}
                     trend={{
-                      value: trend,
-                      isPositive: isPositive
+                      value: metricData.trend,
+                      isPositive: key === 'dependencyRatio' ? metricData.trend < 0 : metricData.trend > 0
                     }}
-                    data={data}
+                    data={metricData}
                   />
                 );
               })}
@@ -264,7 +262,9 @@ export function Dashboard() {
               <Card>
                 <CardContent className="p-6">
                   <h3 className="text-xl font-semibold mb-4">Detailed Analysis Report</h3>
-                  {/* Add your detailed report content here */}
+                  <p className="text-labor-600">
+                    Access comprehensive labor market analysis and future projections with our Gold Plan.
+                  </p>
                 </CardContent>
               </Card>
             }

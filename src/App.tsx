@@ -11,6 +11,8 @@ import DashboardPage from "./pages/DashboardPage";
 import { useAuth } from "./contexts/AuthContext";
 
 function App() {
+  const { user } = useAuth();
+  
   return (
     <Router>
       <div className="flex flex-col min-h-screen">
@@ -22,7 +24,8 @@ function App() {
             <Route path="/subscriptions" element={<SubscriptionPlans />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/predictions" element={<PredictionTab />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth" element={user ? <Navigate to="/" /> : <Auth />} />
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
         <Toaster position="top-right" />

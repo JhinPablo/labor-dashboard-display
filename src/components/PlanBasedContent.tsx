@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import MetricCard from './MetricCard';
 import { Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface PlanBasedContentProps {
   data: any;
@@ -45,13 +46,15 @@ const PlanBasedContent: React.FC<PlanBasedContentProps> = ({
   if (type === 'chart' && !showChart) {
     return (
       <Card className="h-full">
-        <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-4">
+        <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-4 h-[300px]">
           <Lock className="w-8 h-8 text-gray-400" />
           <h3 className="font-medium text-gray-900">{title}</h3>
           <p className="text-sm text-gray-500">
             Upgrade to Silver or Gold plan to access interactive charts
           </p>
-          <Button variant="outline">Upgrade Plan</Button>
+          <Button variant="outline" asChild>
+            <Link to="/subscriptions">Upgrade Plan</Link>
+          </Button>
         </CardContent>
       </Card>
     );
@@ -66,13 +69,25 @@ const PlanBasedContent: React.FC<PlanBasedContentProps> = ({
           <p className="text-sm text-gray-500">
             Upgrade to Gold plan to access detailed reports
           </p>
-          <Button variant="outline">Upgrade Plan</Button>
+          <Button variant="outline" asChild>
+            <Link to="/subscriptions">Upgrade Plan</Link>
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  return chartComponent || null;
+  if (!chartComponent) {
+    return (
+      <Card className="h-full">
+        <CardContent className="p-6 flex items-center justify-center h-[300px]">
+          <p className="text-labor-500">No data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return chartComponent;
 };
 
 export default PlanBasedContent;
