@@ -103,15 +103,15 @@ const DashboardLayout = () => {
           // Use dummy regions if we can't fetch from DB
           setRegions(dummyRegions);
         } else if (regionsData && regionsData.length > 0) {
-          // Check if region_name field exists
-          if (regionsData[0] && 'region_name' in regionsData[0]) {
+          // Check if un_region field exists (using un_region instead of region_name)
+          if (regionsData[0] && 'un_region' in regionsData[0]) {
             // Get unique regions
             const uniqueRegions = [...new Set(regionsData
-              .map(item => item.region_name)
+              .map(item => item.un_region)
               .filter(Boolean))];
             setRegions(uniqueRegions.map((name, index) => ({ id: `region-${index}`, name })));
           } else {
-            console.warn('region_name field not found in geo_data table, using dummy data');
+            console.warn('un_region field not found in geo_data table, using dummy data');
             setRegions(dummyRegions);
           }
         } else {

@@ -60,8 +60,8 @@ const DashboardMap: React.FC<DashboardMapProps> = ({
         let geoQuery = supabase.from('geo_data').select('*');
         
         if (selectedRegion !== 'all') {
-          // Si hay un filtro de región, lo aplicamos
-          geoQuery = geoQuery.eq('region_name', selectedRegion);
+          // Si hay un filtro de región, lo aplicamos usando un_region en lugar de region_name
+          geoQuery = geoQuery.eq('un_region', selectedRegion);
         }
         
         const { data: geoData, error: geoError } = await geoQuery;
@@ -133,7 +133,8 @@ const DashboardMap: React.FC<DashboardMapProps> = ({
           
           return {
             geo: geo.geo || 'Unknown',
-            region_name: geo.region_name || 'Unknown',
+            // Map un_region to region_name for compatibility with our UI
+            region_name: geo.un_region || 'Unknown',
             labor_force: labor?.labour_force || 0,
             fertility_rate: fertility?.fertility_rate || 0,
             population: population?.population || 0,
@@ -229,7 +230,6 @@ const DashboardMap: React.FC<DashboardMapProps> = ({
               <Marker 
                 key={`marker-${i}`} 
                 coordinates={[marker.longitude, marker.latitude]}
-                data-tooltip-id="map-tooltip"
                 data-tooltip-content={`
                   ${marker.geo}<br/>
                   Population: ${marker.population.toLocaleString()}<br/>
