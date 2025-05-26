@@ -36,24 +36,23 @@ export type DashboardData = {
   };
 };
 
-const useDashboardAPI = (selectedRegion: string = 'all', selectedYear?: number, selectedCountry: string = 'all') => {
+const useDashboardAPI = (selectedRegion: string = 'all', selectedYear?: number) => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async (region: string, year?: number, country: string = 'all') => {
+  const fetchData = async (region: string, year?: number) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log('Fetching dashboard data:', { region, year, country });
+      console.log('Fetching dashboard data:', { region, year });
       
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
       const params = new URLSearchParams({
         region,
-        country,
       });
       
       if (year) {
@@ -96,43 +95,11 @@ const useDashboardAPI = (selectedRegion: string = 'all', selectedYear?: number, 
   };
 
   useEffect(() => {
-    fetchData(selectedRegion, selectedYear, selectedCountry);
-  }, [selectedRegion, selectedYear, selectedCountry]);
-
-  const refresh = (year?: number) => {
-    fetchData(selectedRegion, year, selectedCountry);
-  };
-
-  // Legacy compatibility - transform data to match old format
-  const metricData = data ? {
-    ...data.metrics,
-    isLoading
-  } : {
-    populationTotal: { label: 'Population', value: '0', trend: 0 },
-    laborForceRate: { label: 'Labor Force Rate', value: '0%', trend: 0 },
-    fertilityRate: { label: 'Fertility Rate', value: '0', trend: 0 },
-    dependencyRatio: { label: 'Dependency Ratio', value: '0%', trend: 0 },
-    isLoading: true
-  };
-
-  const chartData = data ? {
-    ...data.chartData,
-    isLoading
-  } : {
-    fertilityData: [],
-    laborForceData: [],
-    populationPyramidData: [],
-    dependencyRatioData: [],
-    regions: [],
-    countries: [],
-    years: [],
-    isLoading: true
-  };
+    fetchData(selectedRegion, selectedYear);
+  }, [selectedRegion, selectedYear]);
 
   return {
     data,
-    metricData,
-    chartData,
     isLoading,
     error,
     refresh: fetchData
