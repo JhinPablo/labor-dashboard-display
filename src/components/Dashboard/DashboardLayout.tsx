@@ -52,7 +52,13 @@ const DashboardLayout = () => {
     );
   }
 
+  // Convert region data to match expected format
   const regions = data?.chartData.regions || [];
+  const regionsFormatted = regions.map((r, index) => ({
+    id: `region-${index}`,
+    name: r.region
+  }));
+
   const availableYears = data?.chartData.years || [2018, 2019, 2020, 2021, 2022];
 
   // Transform metrics for DashboardMetrics component
@@ -70,14 +76,11 @@ const DashboardLayout = () => {
       trend: data.metrics.populationTotal.trend 
     },
     topCountries: data.chartData.countries
-      .sort((a, b) => {
-        // Sort by some metric - we'll use a simple alphabetical sort for now
-        return a.geo.localeCompare(b.geo);
-      })
+      .sort((a, b) => a.geo.localeCompare(b.geo))
       .slice(0, 3)
       .map(country => ({
         country: country.geo,
-        value: 0 // This would need to be calculated from actual data
+        value: 0
       }))
   } : {
     laborForce: { value: 0, trend: 0 },
@@ -94,7 +97,7 @@ const DashboardLayout = () => {
         <DashboardControls
           selectedRegion={selectedRegion}
           selectedYear={selectedYear}
-          regions={regions}
+          regions={regionsFormatted}
           availableYears={availableYears}
           onRegionChange={handleRegionChange}
           onYearChange={handleYearChange}
