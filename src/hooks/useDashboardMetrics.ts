@@ -2,17 +2,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const dummyMetrics = {
-  laborForce: { value: 245000000, trend: 1.2 },
-  fertilityRate: { value: 1.56, trend: -0.3 },
-  population: { value: 520000000, trend: 0.5 },
-  topCountries: [
-    {country: 'Germany', value: 42000000},
-    {country: 'France', value: 33500000},
-    {country: 'United Kingdom', value: 32800000}
-  ]
-};
-
 export const useDashboardMetrics = (selectedRegion: string, selectedYear: number) => {
   const [isLoading, setIsLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -27,28 +16,49 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
       if (selectedYear) {
         setIsLoading(true);
         try {
+          // Get countries for the selected region
+          let countries: string[] = [];
+          if (selectedRegion !== 'all') {
+            const { data: geoData, error: geoError } = await supabase
+              .from('geo_data')
+              .select('geo')
+              .eq('un_region', selectedRegion);
+              
+            if (geoError) {
+              console.error('Error fetching geo data:', geoError);
+              setIsLoading(false);
+              return;
+            }
+            
+            countries = geoData?.map(g => g.geo) || [];
+          }
+          
           // Fetch labor force data
-          const laborQuery = supabase
+          let laborQuery = supabase
             .from('labor')
             .select('geo, labour_force, year')
             .eq('year', selectedYear);
             
-          if (selectedRegion !== 'all') {
-            laborQuery.like('geo', `%${selectedRegion}%`);
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            laborQuery = laborQuery.in('geo', countries);
           }
             
           const { data: laborData, error: laborError } = await laborQuery;
           
           if (laborError) {
             console.error('Error fetching labor data:', laborError);
-            setMetrics(dummyMetrics);
             setIsLoading(false);
             return;
           }
           
           if (!laborData || laborData.length === 0) {
-            console.log('No labor data found, using dummy metrics');
-            setMetrics(dummyMetrics);
+            console.log('No labor data found for the selected criteria');
+            setMetrics({
+              laborForce: { value: 0, trend: 0 },
+              fertilityRate: { value: 0, trend: 0 },
+              population: { value: 0, trend: 0 },
+              topCountries: []
+            });
             setIsLoading(false);
             return;
           }
@@ -58,11 +68,17 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
           
           // Fetch previous year labor force for trend
           const prevYear = selectedYear - 1;
-          const { data: prevLaborData, error: prevLaborError } = await supabase
+          let prevLaborQuery = supabase
             .from('labor')
             .select('labour_force')
             .eq('year', prevYear);
             
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            prevLaborQuery = prevLaborQuery.in('geo', countries);
+          }
+            
+          const { data: prevLaborData, error: prevLaborError } = await prevLaborQuery;
+          
           if (prevLaborError) {
             console.error('Error fetching previous labor data:', prevLaborError);
           }
@@ -72,11 +88,17 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
           const laborForceTrend = prevTotalLaborForce ? ((totalLaborForce - prevTotalLaborForce) / prevTotalLaborForce) * 100 : 0;
           
           // Fetch fertility rate data
-          const { data: fertilityData, error: fertilityError } = await supabase
+          let fertilityQuery = supabase
             .from('fertility')
             .select('geo, fertility_rate')
             .eq('year', selectedYear);
             
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            fertilityQuery = fertilityQuery.in('geo', countries);
+          }
+            
+          const { data: fertilityData, error: fertilityError } = await fertilityQuery;
+          
           if (fertilityError) {
             console.error('Error fetching fertility data:', fertilityError);
           }
@@ -89,16 +111,22 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
             
           const avgFertilityRate = validFertilityRates.length > 0 
             ? validFertilityRates.reduce((sum, rate) => sum + rate, 0) / validFertilityRates.length 
-            : dummyMetrics.fertilityRate.value;
+            : 0;
           
           // Fetch top countries with highest labor force
-          const { data: topCountriesData, error: topCountriesError } = await supabase
+          let topCountriesQuery = supabase
             .from('labor')
             .select('geo, labour_force')
             .eq('year', selectedYear)
             .order('labour_force', { ascending: false })
             .limit(3);
             
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            topCountriesQuery = topCountriesQuery.in('geo', countries);
+          }
+            
+          const { data: topCountriesData, error: topCountriesError } = await topCountriesQuery;
+          
           if (topCountriesError) {
             console.error('Error fetching top countries:', topCountriesError);
           }
@@ -108,32 +136,44 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
                 country: item.geo,
                 value: item.labour_force || 0
               }))
-            : dummyMetrics.topCountries;
+            : [];
           
           // Fetch population data
-          const { data: populationData, error: populationError } = await supabase
+          let populationQuery = supabase
             .from('population')
             .select('population')
             .eq('year', selectedYear)
             .eq('sex', 'Total')
             .eq('age', 'Total');
             
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            populationQuery = populationQuery.in('geo', countries);
+          }
+            
+          const { data: populationData, error: populationError } = await populationQuery;
+          
           if (populationError) {
             console.error('Error fetching population data:', populationError);
           }
           
           const totalPopulation = populationData
             ? populationData.reduce((sum, item) => sum + (item.population || 0), 0)
-            : dummyMetrics.population.value;
+            : 0;
           
           // Fetch previous year population for trend
-          const { data: prevPopData, error: prevPopError } = await supabase
+          let prevPopQuery = supabase
             .from('population')
             .select('population')
             .eq('year', prevYear)
             .eq('sex', 'Total')
             .eq('age', 'Total');
             
+          if (selectedRegion !== 'all' && countries.length > 0) {
+            prevPopQuery = prevPopQuery.in('geo', countries);
+          }
+            
+          const { data: prevPopData, error: prevPopError } = await prevPopQuery;
+          
           if (prevPopError) {
             console.error('Error fetching previous population data:', prevPopError);
           }
@@ -144,16 +184,16 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
             
           const populationTrend = prevTotalPopulation 
             ? ((totalPopulation - prevTotalPopulation) / prevTotalPopulation) * 100 
-            : dummyMetrics.population.trend;
+            : 0;
           
           setMetrics({
             laborForce: { 
-              value: totalLaborForce || dummyMetrics.laborForce.value, 
-              trend: laborForceTrend || dummyMetrics.laborForce.trend 
+              value: totalLaborForce, 
+              trend: laborForceTrend 
             },
             fertilityRate: { 
               value: avgFertilityRate, 
-              trend: dummyMetrics.fertilityRate.trend
+              trend: 0 // Could calculate fertility trend if needed
             },
             population: { 
               value: totalPopulation, 
@@ -164,7 +204,6 @@ export const useDashboardMetrics = (selectedRegion: string, selectedYear: number
           
         } catch (error) {
           console.error('Error fetching dashboard metrics:', error);
-          setMetrics(dummyMetrics);
         } finally {
           setIsLoading(false);
         }

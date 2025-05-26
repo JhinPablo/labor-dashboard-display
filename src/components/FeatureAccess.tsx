@@ -21,7 +21,7 @@ const FeatureAccess: React.FC<FeatureAccessProps> = ({
   title,
   description
 }) => {
-  const { userSubscription, isLoading } = useAuth();
+  const { userSubscription, isLoading, user } = useAuth();
   
   // Define subscription levels for comparison
   const planLevels = {
@@ -30,8 +30,20 @@ const FeatureAccess: React.FC<FeatureAccessProps> = ({
     'gold': 2
   };
   
+  // Get user's subscription plan from multiple sources
+  const currentPlan = userSubscription || 
+                     user?.user_metadata?.subscription_plan || 
+                     'free';
+  
+  console.log('FeatureAccess check:', {
+    requiredPlan,
+    currentPlan,
+    userSubscription,
+    userMetadata: user?.user_metadata?.subscription_plan
+  });
+  
   const requiredLevel = planLevels[requiredPlan];
-  const userLevel = planLevels[userSubscription || 'free'];
+  const userLevel = planLevels[currentPlan as keyof typeof planLevels] || 0;
   
   // If user has sufficient plan level, show the content
   if (userLevel >= requiredLevel) {
@@ -51,6 +63,9 @@ const FeatureAccess: React.FC<FeatureAccessProps> = ({
         <h3 className="font-medium text-labor-900">{title || `${requiredPlan.charAt(0).toUpperCase() + requiredPlan.slice(1)} Plan Feature`}</h3>
         <p className="text-sm text-gray-500">
           {description || `Upgrade to ${requiredPlan.charAt(0).toUpperCase() + requiredPlan.slice(1)} plan to access this feature`}
+        </p>
+        <p className="text-xs text-gray-400">
+          Current plan: {currentPlan}
         </p>
         <Button variant="outline" asChild>
           <Link to="/subscriptions">Upgrade Plan</Link>

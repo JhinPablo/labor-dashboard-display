@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Get user subscription plan if we have a user
         if (currentSession?.user) {
           setTimeout(() => {
-            fetchUserSubscription(currentSession.user.id);
+            fetchUserSubscription(currentSession.user);
           }, 0);
         } else {
           setUserSubscription(null);
@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(currentSession?.user ?? null);
       
       if (currentSession?.user) {
-        fetchUserSubscription(currentSession.user.id);
+        fetchUserSubscription(currentSession.user);
       } else {
         setIsLoading(false);
       }
@@ -56,11 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserSubscription = async (userId: string) => {
+  const fetchUserSubscription = async (currentUser: User) => {
     try {
       // First try to get it from user metadata
-      if (user?.user_metadata?.subscription_plan) {
-        const plan = user.user_metadata.subscription_plan;
+      if (currentUser?.user_metadata?.subscription_plan) {
+        const plan = currentUser.user_metadata.subscription_plan;
+        console.log('Found subscription in user metadata:', plan);
         setUserSubscription(plan as 'free' | 'silver' | 'gold');
         setIsLoading(false);
         return;
@@ -70,12 +71,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase
         .from('profiles')
         .select('subscription_plan')
-        .eq('id', userId)
+        .eq('id', currentUser.id)
         .single();
 
-      if (error) throw error;
-      
-      setUserSubscription(data?.subscription_plan as 'free' | 'silver' | 'gold' || 'free');
+      if (error) {
+        console.error('Error fetching user subscription:', error);
+        setUserSubscription('free');
+      } else {
+        const plan = data?.subscription_plan as 'free' | 'silver' | 'gold' || 'free';
+        console.log('Found subscription in profiles table:', plan);
+        setUserSubscription(plan);
+      }
     } catch (error) {
       console.error('Error fetching user subscription:', error);
       setUserSubscription('free'); // Default to free if there's an error
