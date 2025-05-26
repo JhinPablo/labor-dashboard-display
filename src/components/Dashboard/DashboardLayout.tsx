@@ -8,23 +8,16 @@ import DashboardMetrics from './DashboardMetrics';
 import DashboardMap from './DashboardMap';
 import DashboardHeader from './DashboardHeader';
 import DashboardControls from './DashboardControls';
-import { useDashboardInitialData } from '@/hooks/useDashboardInitialData';
-import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import useDashboardAPI from '@/hooks/useDashboardAPI';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const DashboardLayout = () => {
   const { userSubscription, isLoading: authLoading } = useAuth();
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(2020);
   
-  const {
-    isLoading: initialDataLoading,
-    selectedYear,
-    setSelectedYear,
-    availableYears,
-    regions
-  } = useDashboardInitialData();
+  const { data, isLoading, error } = useDashboardAPI(selectedRegion, selectedYear);
 
-  const { metrics, isLoading: metricsLoading } = useDashboardMetrics(selectedRegion, selectedYear);
-  
   const handleRegionChange = (value: string) => {
     setSelectedRegion(value);
   };
@@ -47,6 +40,52 @@ const DashboardLayout = () => {
     );
   }
 
+  if (error && !isLoading) {
+    return (
+      <div className="container p-8 max-w-7xl mx-auto">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Error loading dashboard data: {error}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const regions = data?.chartData.regions || [];
+  const availableYears = data?.chartData.years || [2018, 2019, 2020, 2021, 2022];
+
+  // Transform metrics for DashboardMetrics component
+  const metrics = data ? {
+    laborForce: { 
+      value: parseFloat(data.metrics.laborForceRate.value.replace('M', '')) * 1000000,
+      trend: data.metrics.laborForceRate.trend 
+    },
+    fertilityRate: { 
+      value: parseFloat(data.metrics.fertilityRate.value),
+      trend: data.metrics.fertilityRate.trend 
+    },
+    population: { 
+      value: parseFloat(data.metrics.populationTotal.value.replace('M', '')) * 1000000,
+      trend: data.metrics.populationTotal.trend 
+    },
+    topCountries: data.chartData.countries
+      .sort((a, b) => {
+        // Sort by some metric - we'll use a simple alphabetical sort for now
+        return a.geo.localeCompare(b.geo);
+      })
+      .slice(0, 3)
+      .map(country => ({
+        country: country.geo,
+        value: 0 // This would need to be calculated from actual data
+      }))
+  } : {
+    laborForce: { value: 0, trend: 0 },
+    fertilityRate: { value: 0, trend: 0 },
+    population: { value: 0, trend: 0 },
+    topCountries: []
+  };
+
   return (
     <div className="container p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -65,7 +104,7 @@ const DashboardLayout = () => {
       {/* KPI metrics section - available to all plans */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardMetrics 
-          isLoading={metricsLoading}
+          isLoading={isLoading}
           metrics={metrics} 
         />
       </div>
@@ -77,7 +116,7 @@ const DashboardLayout = () => {
         description="Upgrade to Silver or Gold plan to access the interactive map with detailed regional data"
       >
         <DashboardMap 
-          isLoading={initialDataLoading || metricsLoading}
+          isLoading={isLoading}
           selectedYear={selectedYear}
           selectedRegion={selectedRegion}
         />
@@ -100,6 +139,29 @@ const DashboardLayout = () => {
           </CardContent>
         </Card>
       </FeatureAccess>
+
+      {/* Data Summary */}
+      {data && !isLoading && (
+        <Card className="bg-gray-50">
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium text-gray-600 mb-2">Data Summary</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-500">
+              <div>
+                <span className="font-medium">Region:</span> {data.metadata.selectedRegion === 'all' ? 'All Regions' : data.metadata.selectedRegion}
+              </div>
+              <div>
+                <span className="font-medium">Year:</span> {data.metadata.selectedYear}
+              </div>
+              <div>
+                <span className="font-medium">Countries:</span> {data.metadata.totalCountries}
+              </div>
+              <div>
+                <span className="font-medium">Data Points:</span> {Object.values(data.metadata.dataPoints).reduce((a, b) => a + b, 0)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

@@ -23,17 +23,23 @@ import {
   LaborForceByGenderChart
 } from './DashboardCharts';
 import { Card, CardContent } from '@/components/ui/card';
-import useDashboardData from '@/hooks/useDashboardData';
+import useDashboardAPI from '@/hooks/useDashboardAPI';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DependencyRatioMapModal } from './DependencyRatioMapModal';
 import PlanBasedContent from './PlanBasedContent';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function Dashboard() {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const { metricData, chartData, isLoading, refresh } = useDashboardData(selectedRegion);
+  
+  const { data, metricData, chartData, isLoading, error, refresh } = useDashboardAPI(
+    selectedRegion, 
+    selectedYear || undefined, 
+    selectedCountry
+  );
 
   const handleRegionChange = (region: string) => {
     setSelectedRegion(region);
@@ -47,8 +53,6 @@ export function Dashboard() {
   const handleYearChange = (year: string) => {
     const yearNum = parseInt(year);
     setSelectedYear(yearNum);
-    // Refresh data with the selected year
-    refresh(yearNum);
   };
 
   // Get the latest year from chart data
@@ -67,14 +71,20 @@ export function Dashboard() {
   // Ensure we have at least one value for the year dropdown
   const yearOptions = chartData.years && chartData.years.length > 0 
     ? chartData.years
-    : ['no-data']; // 'no-data' is a valid non-empty value
+    : [];
 
-  // Effect to refresh data when year changes
-  useEffect(() => {
-    if (selectedYear !== null) {
-      refresh(selectedYear);
-    }
-  }, [selectedYear]);
+  // Display error if any
+  if (error && !isLoading) {
+    return (
+      <div className="space-y-8 p-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Error loading dashboard data: {error}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-6 animate-fade-in">
@@ -123,9 +133,9 @@ export function Dashboard() {
                 }
                 
                 // Safe access to properties with proper type assertions
-                const metricData = data as { label: string; value: string; trend: number };
+                const metricInfo = data as { label: string; value: string; trend: number };
                 
-                if (!('label' in metricData) || !('value' in metricData) || !('trend' in metricData)) {
+                if (!('label' in metricInfo) || !('value' in metricInfo) || !('trend' in metricInfo)) {
                   return null;
                 }
                 
@@ -133,13 +143,13 @@ export function Dashboard() {
                   <PlanBasedContent
                     key={key}
                     type="metric"
-                    title={metricData.label}
-                    value={metricData.value}
+                    title={metricInfo.label}
+                    value={metricInfo.value}
                     trend={{
-                      value: metricData.trend,
-                      isPositive: key === 'dependencyRatio' ? metricData.trend < 0 : metricData.trend > 0
+                      value: metricInfo.trend,
+                      isPositive: key === 'dependencyRatio' ? metricInfo.trend < 0 : metricInfo.trend > 0
                     }}
-                    data={metricData}
+                    data={metricInfo}
                   />
                 );
               })}
@@ -176,23 +186,23 @@ export function Dashboard() {
               value={
                 selectedYear !== null
                   ? selectedYear.toString()
-                  : latestYear?.toString() || 'no-data'
+                  : latestYear?.toString() || ''
               }
               onValueChange={handleYearChange}
-              disabled={yearOptions.length === 0 || yearOptions[0] === 'no-data'}
+              disabled={yearOptions.length === 0}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
               <SelectContent>
-                {yearOptions[0] !== 'no-data' ? (
+                {yearOptions.length > 0 ? (
                   yearOptions.map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year.toString()}
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem value="no-data">No data available</SelectItem>
+                  <SelectItem value="" disabled>No data available</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -271,6 +281,31 @@ export function Dashboard() {
           />
         </div>
       </section>
+
+      {/* Data Summary */}
+      {data && !isLoading && (
+        <section className="mt-8">
+          <Card className="bg-gray-50">
+            <CardContent className="p-4">
+              <h3 className="text-sm font-medium text-gray-600 mb-2">Data Summary</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-500">
+                <div>
+                  <span className="font-medium">Region:</span> {data.metadata.selectedRegion === 'all' ? 'All Regions' : data.metadata.selectedRegion}
+                </div>
+                <div>
+                  <span className="font-medium">Year:</span> {data.metadata.selectedYear}
+                </div>
+                <div>
+                  <span className="font-medium">Countries:</span> {data.metadata.totalCountries}
+                </div>
+                <div>
+                  <span className="font-medium">Data Points:</span> {Object.values(data.metadata.dataPoints).reduce((a, b) => a + b, 0)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
